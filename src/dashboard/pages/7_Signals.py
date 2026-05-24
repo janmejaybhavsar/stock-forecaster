@@ -155,6 +155,12 @@ if "_signal_result" in st.session_state:
         for key, val in list(details.items())[:4]:
             if key not in ("per_model", "top_headlines"):
                 card_html += f'<div style="color:{COLORS["text_secondary"]}; font-size:0.8rem; margin:2px 0;">{key}: <span style="color:{COLORS["text_primary"]}">{val}</span></div>'
+        if reasonings:
+            card_html += f'''
+            <div style="margin-top:12px; color:{COLORS["text_muted"]}; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.4px;">Reasoning</div>
+            '''
+            for reason in reasonings[:3]:
+                card_html += f'<div style="color:{COLORS["text_secondary"]}; font-size:0.8rem; margin:4px 0 0 0;">• {reason}</div>'
         card_html += "</div>"
         return card_html
 
