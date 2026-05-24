@@ -3,6 +3,8 @@ Dark Fintech Theme — Global CSS and styling for the Stock Forecaster dashboard
 Inspired by TradingView / Robinhood aesthetic.
 """
 
+import html as html_module
+
 import streamlit as st
 
 
@@ -343,9 +345,11 @@ def notification_card(icon: str, message: str, priority: str = "medium") -> str:
         "low": f"border-left: 4px solid {COLORS['green']}; background: {COLORS['green_soft']};",
     }
     style = styles.get(priority, styles["medium"])
+    safe_icon = html_module.escape(icon)
+    safe_message = html_module.escape(message)
     return f"""
     <div style="{style} padding: 12px 16px; border-radius: 8px; margin-bottom: 8px;">
-        <span style="color:{COLORS['text_primary']};">{icon} {message}</span>
+        <span style="color:{COLORS['text_primary']};">{safe_icon} {safe_message}</span>
     </div>
     """
 
