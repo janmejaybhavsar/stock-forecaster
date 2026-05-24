@@ -17,7 +17,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True, show_dates=True)
 
-API_BASE = "http://localhost:8000/api/v1"
+from src.dashboard.components.auth_helper import API_BASE
 
 
 @st.cache_data(ttl=300)

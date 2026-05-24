@@ -1,7 +1,19 @@
+import os
+
 import httpx
 import streamlit as st
 
-API_BASE = "http://localhost:8000/api/v1"
+
+def _normalize_api_base_url(raw_base: str) -> str:
+    normalized = raw_base.rstrip("/")
+    if normalized.endswith("/api/v1"):
+        normalized = normalized[: -len("/api/v1")]
+    return normalized
+
+
+API_BASE = _normalize_api_base_url(
+    os.environ.get("API_BASE_URL", "http://localhost:8000")
+) + "/api/v1"
 
 
 def get_auth_headers() -> dict:
