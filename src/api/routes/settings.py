@@ -18,13 +18,21 @@ class UserSettingsUpdate(BaseModel):
     llm_api_key: str = ""
 
 
+def _build_settings_response(data):
+    data = data or {}
+    return UserSettingsResponse(
+        llm_provider=data.get("llm_provider", UserSettingsResponse.model_fields["llm_provider"].default),
+        llm_api_key=data.get("llm_api_key", UserSettingsResponse.model_fields["llm_api_key"].default),
+    )
+
+
 @router.get("/settings", response_model=UserSettingsResponse)
 def get_settings(user: dict = Depends(get_current_user)):
     data = _settings_repo.get(user["id"])
-    return UserSettingsResponse(llm_provider=data["llm_provider"], llm_api_key=data["llm_api_key"])
+    return _build_settings_response(data)
 
 
 @router.put("/settings", response_model=UserSettingsResponse)
 def update_settings(req: UserSettingsUpdate, user: dict = Depends(get_current_user)):
     data = _settings_repo.save(user["id"], req.llm_provider, req.llm_api_key)
-    return UserSettingsResponse(llm_provider=data["llm_provider"], llm_api_key=data["llm_api_key"])
+    return _build_settings_response(data)

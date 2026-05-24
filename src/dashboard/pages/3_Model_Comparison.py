@@ -128,6 +128,6 @@ else:
     st.markdown(f"""
     <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:48px; text-align:center;">
         <div style="font-size:2.5rem; margin-bottom:12px;">🔬</div>
-        <p style="color:{COLORS['text_secondary']}; font-size:1.1rem; margin:0;">Select models above and click 'Compare' to see forecasts side by side</p>
+        <p style="color:{COLORS['text_secondary']}; font-size:1.1rem; margin:0;">Select models above and click 'Compare Models' to see forecasts side by side</p>
     </div>
     """, unsafe_allow_html=True)
