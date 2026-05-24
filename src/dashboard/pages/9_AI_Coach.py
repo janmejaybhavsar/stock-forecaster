@@ -62,7 +62,7 @@ with st.expander("LLM Settings", expanded=not st.session_state.get("_coach_api_k
             help="Get free Gemini key at https://aistudio.google.com/apikey. Get free Groq key at https://console.groq.com",
         )
 
-    # Auto-save settings when changed
+    # Save settings when the user clicks "Save Key"
     col_save, col_status = st.columns([1, 3])
     with col_save:
         if st.button("Save Key", type="primary", use_container_width=True):
