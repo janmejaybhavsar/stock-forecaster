@@ -9,7 +9,7 @@ import httpx
 import streamlit as st
 
 from src.dashboard.components.sidebar import render_page_controls
-from src.dashboard.components.theme import COLORS, metric_card, section_header
+from src.dashboard.components.theme import COLORS, section_header
 
 render_page_controls()
 

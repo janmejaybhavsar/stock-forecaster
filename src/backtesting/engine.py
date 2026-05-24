@@ -66,7 +66,6 @@ def walk_forward_backtest(
     ]
 
     returns_actual = np.diff(actuals_arr) / actuals_arr[:-1]
-    returns_pred = np.diff(preds_arr) / preds_arr[:-1]
     strategy_returns = np.where(np.diff(preds_arr) > 0, returns_actual, -returns_actual)
 
     cum_strategy = np.cumprod(1 + strategy_returns)

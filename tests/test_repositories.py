@@ -1,7 +1,5 @@
 """Tests for database repositories."""
 
-import pytest
-
 
 class TestUserRepository:
     def test_create_user(self, user_repo):

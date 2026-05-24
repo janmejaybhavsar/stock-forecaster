@@ -1,7 +1,5 @@
 """Tests for learning path modules."""
 
-import pytest
-
 
 class TestLearningModules:
     def test_modules_defined(self):

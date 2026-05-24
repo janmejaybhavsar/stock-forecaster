@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.dashboard.components.sidebar import render_page_controls
-from src.dashboard.components.theme import COLORS, signal_badge, section_header, metric_card
+from src.dashboard.components.theme import COLORS, section_header, metric_card
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Signals</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True, show_horizon=True)

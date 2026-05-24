@@ -33,7 +33,7 @@ _logo_svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 44">
   <text x="44" y="36" font-family="Arial,sans-serif" font-weight="600" font-size="8" fill="{COLORS['text_muted']}" letter-spacing="0.8">PORTFOLIO GROWTH COACH</text>
 </svg>'''
 
-_icon_svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 44">
+_icon_svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 44">
   <defs>
     <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#00d4aa"/>
