@@ -7,15 +7,13 @@ import httpx
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.dashboard.components.sidebar import render_sidebar
+from src.dashboard.components.sidebar import render_page_controls
+from src.dashboard.components.theme import COLORS, section_header, metric_card
 
-st.set_page_config(page_title="Signals - Stock Forecaster", layout="wide")
-params = render_sidebar()
+st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Signals</h1>", unsafe_allow_html=True)
+params = render_page_controls(show_ticker=True, show_horizon=True)
 
 API_BASE = "http://localhost:8000/api/v1"
-
-st.header("Buy / Sell / Hold Signals")
-st.caption("Composite analysis combining technical indicators, ML model consensus, and news sentiment")
 
 # --- Signal for Current Ticker ---
 ticker = params["ticker"]
@@ -30,7 +28,7 @@ with col_settings:
     )
 with col_run:
     st.markdown("<br>", unsafe_allow_html=True)
-    run_signal = st.button("Analyze Signal", type="primary", use_container_width=True)
+    run_signal = st.button(f"Analyze {ticker}", type="primary", use_container_width=True)
 
 if run_signal:
     with st.spinner(f"Analyzing {ticker}... Running models and computing signals"):
@@ -51,179 +49,152 @@ if run_signal:
 if "_signal_result" in st.session_state:
     data = st.session_state["_signal_result"]
 
-    st.markdown("---")
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
-    # --- Big Signal Badge ---
-    col_badge, col_gauge, col_price = st.columns([2, 2, 1])
+    # --- Top Row: Signal Badge + Confidence + Price ---
+    col_badge, col_gauge, col_info = st.columns([2.5, 2, 1.5])
 
     with col_badge:
         label = data["signal_label"]
         color = data["color"]
         score = data["composite_score"]
 
-        st.markdown(
-            f"""
-            <div style="
-                background: {color}20;
-                border: 3px solid {color};
-                border-radius: 16px;
-                padding: 30px;
-                text-align: center;
-            ">
-                <div style="font-size: 42px; font-weight: bold; color: {color};">
-                    {label}
-                </div>
-                <div style="font-size: 18px; color: #aaa; margin-top: 8px;">
-                    Composite Score: {score:+.2f}
-                </div>
+        st.markdown(f"""
+        <div style="
+            background: {color}10;
+            border: 2px solid {color};
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            box-shadow: 0 0 40px {color}15;
+        ">
+            <div style="font-size: 2.5rem; font-weight: 800; color: {color}; letter-spacing: 2px;">
+                {label}
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            <div style="font-size: 1rem; color: {COLORS['text_muted']}; margin-top: 8px;">
+                Score: <span style="color:{color}; font-weight:600;">{score:+.3f}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col_gauge:
         confidence = data["confidence"]
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
             value=confidence,
-            title={"text": "Confidence", "font": {"size": 18, "color": "#ccc"}},
-            number={"suffix": "%", "font": {"size": 36, "color": "#fff"}},
+            title={"text": "CONFIDENCE", "font": {"size": 12, "color": COLORS["text_muted"]}},
+            number={"suffix": "%", "font": {"size": 42, "color": COLORS["text_primary"]}},
             gauge={
-                "axis": {"range": [0, 100], "tickcolor": "#666"},
-                "bar": {"color": color},
-                "bgcolor": "#1a1a2e",
+                "axis": {"range": [0, 100], "tickcolor": COLORS["border"], "tickfont": {"color": COLORS["text_muted"]}},
+                "bar": {"color": color, "thickness": 0.8},
+                "bgcolor": COLORS["bg_card"],
+                "bordercolor": COLORS["border"],
                 "steps": [
-                    {"range": [0, 33], "color": "#2d1b1b"},
-                    {"range": [33, 66], "color": "#2d2d1b"},
-                    {"range": [66, 100], "color": "#1b2d1b"},
+                    {"range": [0, 33], "color": f"{COLORS['red']}15"},
+                    {"range": [33, 66], "color": f"{COLORS['yellow']}15"},
+                    {"range": [66, 100], "color": f"{COLORS['green']}15"},
                 ],
             },
         ))
         fig.update_layout(
-            template="plotly_dark",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            height=220,
-            margin=dict(t=60, b=10, l=30, r=30),
+            height=200,
+            margin=dict(t=50, b=0, l=30, r=30),
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    with col_price:
-        st.metric("Current Price", f"${data['current_price']:,.2f}")
-        st.metric("Ticker", data["ticker"])
+    with col_info:
+        st.markdown(metric_card("Price", f"${data['current_price']:,.2f}"), unsafe_allow_html=True)
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        st.markdown(metric_card("Horizon", f"{horizon} days"), unsafe_allow_html=True)
 
-    st.markdown("---")
+    st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
-    # --- Reasoning Bullets ---
-    st.markdown("### Why This Signal?")
+    # --- Reasoning ---
+    st.markdown(section_header("Signal Reasoning", "Key factors driving this signal"), unsafe_allow_html=True)
+
     for reason in data.get("reasoning", []):
-        # Color-code based on content
         if any(word in reason.lower() for word in ["bullish", "positive", "upside", "oversold", "bounce", "golden"]):
-            icon = "\U0001f7e2"
+            icon_color = COLORS["green"]
+            icon = "↑"
         elif any(word in reason.lower() for word in ["bearish", "negative", "downside", "overbought", "death", "pullback", "extended"]):
-            icon = "\U0001f534"
+            icon_color = COLORS["red"]
+            icon = "↓"
         else:
-            icon = "\U0001f7e1"
-        st.markdown(f"- {icon} {reason}")
+            icon_color = COLORS["yellow"]
+            icon = "•"
 
-    st.markdown("---")
+        st.markdown(f"""
+        <div style="display:flex; align-items:center; gap:12px; padding:10px 16px; background:{COLORS['bg_card']}; border-radius:8px; margin-bottom:6px; border-left:3px solid {icon_color};">
+            <span style="color:{icon_color}; font-weight:800; font-size:1.1rem;">{icon}</span>
+            <span style="color:{COLORS['text_primary']}; font-size:0.9rem;">{reason}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
     # --- Breakdown Cards ---
-    st.markdown("### Signal Breakdown")
+    st.markdown(section_header("Signal Breakdown", "Individual component scores"), unsafe_allow_html=True)
     col_tech, col_model, col_sent = st.columns(3)
+
+    def _breakdown_card(title: str, signal_val: float, details: dict, reasonings: list):
+        sig_color = COLORS["green"] if signal_val > 0.1 else COLORS["red"] if signal_val < -0.1 else COLORS["yellow"]
+        card_html = f"""
+        <div style="
+            background: {COLORS['bg_card']};
+            border: 1px solid {COLORS['border']};
+            border-top: 3px solid {sig_color};
+            border-radius: 12px;
+            padding: 24px;
+            height: 100%;
+        ">
+            <div style="color:{COLORS['text_muted']}; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px;">{title}</div>
+            <div style="color:{sig_color}; font-size:2rem; font-weight:800; margin:8px 0;">{signal_val:+.2f}</div>
+        """
+        for key, val in list(details.items())[:4]:
+            if key not in ("per_model", "top_headlines"):
+                card_html += f'<div style="color:{COLORS["text_secondary"]}; font-size:0.8rem; margin:2px 0;">{key}: <span style="color:{COLORS["text_primary"]}">{val}</span></div>'
+        if reasonings:
+            card_html += f'''
+            <div style="margin-top:12px; color:{COLORS["text_muted"]}; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.4px;">Reasoning</div>
+            '''
+            for reason in reasonings[:3]:
+                card_html += f'<div style="color:{COLORS["text_secondary"]}; font-size:0.8rem; margin:4px 0 0 0;">• {reason}</div>'
+        card_html += "</div>"
+        return card_html
 
     with col_tech:
         tech = data.get("technical", {})
-        tech_sig = tech.get("signal", 0)
-        tech_color = "#00C851" if tech_sig > 0.1 else "#FF5252" if tech_sig < -0.1 else "#FFB300"
-        st.markdown(
-            f"""
-            <div style="border: 1px solid {tech_color}; border-radius: 12px; padding: 20px;">
-                <h4 style="color: {tech_color}; margin: 0;">Technical Analysis</h4>
-                <div style="font-size: 28px; font-weight: bold; color: {tech_color}; margin: 10px 0;">
-                    {tech_sig:+.2f}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        details = tech.get("details", {})
-        if "rsi_14" in details:
-            st.caption(f"RSI(14): {details['rsi_14']}")
-        if "macd" in details:
-            st.caption(f"MACD: {details['macd']:.4f}")
-        if "bb_position" in details:
-            st.caption(f"BB Position: {details['bb_position']:.0%}")
-        if "sma_50" in details:
-            st.caption(f"SMA 50/200: {details['sma_50']:.2f} / {details.get('sma_200', 0):.2f}")
-
-        for r in tech.get("reasoning", []):
-            st.markdown(f"<small style='color:#888;'>- {r}</small>", unsafe_allow_html=True)
+        st.markdown(_breakdown_card(
+            "Technical Analysis",
+            tech.get("signal", 0),
+            tech.get("details", {}),
+            tech.get("reasoning", []),
+        ), unsafe_allow_html=True)
 
     with col_model:
         consensus = data.get("model_consensus", {})
-        con_sig = consensus.get("signal", 0)
-        con_color = "#00C851" if con_sig > 0.1 else "#FF5252" if con_sig < -0.1 else "#FFB300"
-        st.markdown(
-            f"""
-            <div style="border: 1px solid {con_color}; border-radius: 12px; padding: 20px;">
-                <h4 style="color: {con_color}; margin: 0;">Model Consensus</h4>
-                <div style="font-size: 28px; font-weight: bold; color: {con_color}; margin: 10px 0;">
-                    {con_sig:+.2f}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        con_details = consensus.get("details", {})
-        if "total_models" in con_details:
-            st.caption(f"Models: {con_details.get('bullish_models', 0)} bullish / {con_details.get('bearish_models', 0)} bearish / {con_details.get('neutral_models', 0)} neutral")
-        if "avg_predicted_return_pct" in con_details:
-            st.caption(f"Avg predicted return: {con_details['avg_predicted_return_pct']:+.2f}%")
-
-        per_model = con_details.get("per_model", {})
-        for model_name, verdict in per_model.items():
-            st.markdown(f"<small style='color:#888;'>- {model_name}: {verdict}</small>", unsafe_allow_html=True)
+        st.markdown(_breakdown_card(
+            "Model Consensus",
+            consensus.get("signal", 0),
+            consensus.get("details", {}),
+            consensus.get("reasoning", []),
+        ), unsafe_allow_html=True)
 
     with col_sent:
         sent = data.get("sentiment", {})
-        sent_sig = sent.get("signal", 0)
-        sent_color = "#00C851" if sent_sig > 0.1 else "#FF5252" if sent_sig < -0.1 else "#FFB300"
-        st.markdown(
-            f"""
-            <div style="border: 1px solid {sent_color}; border-radius: 12px; padding: 20px;">
-                <h4 style="color: {sent_color}; margin: 0;">News Sentiment</h4>
-                <div style="font-size: 28px; font-weight: bold; color: {sent_color}; margin: 10px 0;">
-                    {sent_sig:+.2f}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        sent_details = sent.get("details", {})
-        if "total_headlines" in sent_details:
-            st.caption(f"Headlines: {sent_details.get('positive_count', 0)} pos / {sent_details.get('negative_count', 0)} neg / {sent_details.get('neutral_count', 0)} neutral")
+        st.markdown(_breakdown_card(
+            "News Sentiment",
+            sent.get("signal", 0),
+            sent.get("details", {}),
+            sent.get("reasoning", []),
+        ), unsafe_allow_html=True)
 
-        top_headlines = sent_details.get("top_headlines", [])
-        for h in top_headlines[:3]:
-            emoji = {"positive": "+", "negative": "-", "neutral": "~"}.get(h["sentiment"], "~")
-            st.markdown(f"<small style='color:#888;'>[{emoji}] {h['headline'][:60]}...</small>", unsafe_allow_html=True)
-
-    # --- Weights Used ---
-    st.markdown("---")
-    weights = data.get("weights_used", {})
-    if weights:
-        w_cols = st.columns(3)
-        with w_cols[0]:
-            st.caption(f"Technical weight: {weights.get('technical', 0):.0%}")
-        with w_cols[1]:
-            st.caption(f"Model weight: {weights.get('consensus', 0):.0%}")
-        with w_cols[2]:
-            st.caption(f"Sentiment weight: {weights.get('sentiment', 0):.0%}")
+st.markdown("<div style='height:32px'></div>", unsafe_allow_html=True)
 
 # --- Portfolio Signals Section ---
-st.markdown("---")
-st.markdown("### Portfolio Signals")
+st.markdown(section_header("Portfolio Signals", "Scan all your holdings at once"), unsafe_allow_html=True)
 
 if st.session_state.get("auth_token"):
     headers = {"Authorization": f"Bearer {st.session_state.auth_token}"}
@@ -249,23 +220,34 @@ if st.session_state.get("auth_token"):
         if signals_list:
             for sig in signals_list:
                 color = sig["color"]
-                with st.container(border=True):
-                    c1, c2, c3, c4 = st.columns([2, 1.5, 1.5, 3])
-                    with c1:
-                        st.markdown(f"**{sig['ticker']}**")
-                        st.caption(f"${sig['current_price']:,.2f}")
-                    with c2:
-                        st.markdown(
-                            f"<span style='color:{color}; font-weight:bold; font-size:18px;'>{sig['signal_label']}</span>",
-                            unsafe_allow_html=True,
-                        )
-                    with c3:
-                        st.metric("Confidence", f"{sig['confidence']:.0f}%")
-                    with c4:
-                        if sig.get("reasoning"):
-                            st.caption(sig["reasoning"][0])
+                st.markdown(f"""
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    background: {COLORS['bg_card']};
+                    border: 1px solid {COLORS['border']};
+                    border-left: 4px solid {color};
+                    border-radius: 10px;
+                    padding: 16px 24px;
+                    margin-bottom: 8px;
+                ">
+                    <div>
+                        <span style="color:{COLORS['text_primary']}; font-weight:700; font-size:1.1rem;">{sig['ticker']}</span>
+                        <span style="color:{COLORS['text_muted']}; margin-left:12px;">${sig['current_price']:,.2f}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:24px;">
+                        <span style="color:{color}; font-weight:800; font-size:1rem;">{sig['signal_label']}</span>
+                        <span style="color:{COLORS['text_secondary']}; font-size:0.85rem;">{sig['confidence']:.0f}%</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
         else:
             st.info("No holdings in portfolio. Add some on the Portfolio page!")
 else:
-    st.info("Log in to scan signals for your entire portfolio.")
-    st.page_link("pages/0_Login.py", label="Go to Login", icon="🔑")
+    st.markdown(f"""
+    <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:24px; text-align:center;">
+        <p style="color:{COLORS['text_secondary']};">Log in to scan signals for your entire portfolio</p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.page_link("pages/0_Login.py", label="Go to Login", icon="\U0001f511")

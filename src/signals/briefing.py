@@ -8,7 +8,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from collections import Counter
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,5 @@
 """Tests for database repositories."""
 
-import pytest
-
 
 class TestUserRepository:
     def test_create_user(self, user_repo):
@@ -115,3 +113,28 @@ class TestLearningProgressRepository:
 
         progress = repo.get_progress(sample_user["id"])
         assert len(progress) == 1
+
+
+class TestUserSettingsRepository:
+    def test_save_does_not_persist_plaintext_api_key(self, patched_db, sample_user):
+        from src.database.repositories import UserSettingsRepository
+
+        repo = UserSettingsRepository()
+        repo.save(sample_user["id"], "gemini", "secret-key-123")
+
+        row = patched_db.execute(
+            "SELECT llm_api_key FROM user_settings WHERE user_id = ?",
+            (sample_user["id"],),
+        ).fetchone()
+        assert row is not None
+        assert row["llm_api_key"] == "__configured__"
+
+    def test_get_does_not_return_saved_api_key(self, patched_db, sample_user):
+        from src.database.repositories import UserSettingsRepository
+
+        repo = UserSettingsRepository()
+        repo.save(sample_user["id"], "gemini", "secret-key-123")
+
+        settings = repo.get(sample_user["id"])
+        assert settings["llm_provider"] == "gemini"
+        assert settings["llm_api_key"] == ""

@@ -8,12 +8,11 @@ import time
 import streamlit as st
 
 from src.dashboard.components.charts import forecast_chart
-from src.dashboard.components.sidebar import render_sidebar
+from src.dashboard.components.sidebar import render_page_controls
+from src.dashboard.components.theme import COLORS, section_header
 
-st.set_page_config(page_title="Forecast - Stock Forecaster", layout="wide")
-params = render_sidebar()
-
-st.header(f"{params['ticker']} Price Forecast")
+st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Forecast</h1>", unsafe_allow_html=True)
+params = render_page_controls(show_ticker=True, show_dates=True, show_model=True, show_horizon=True, show_sentiment=True)
 
 API_BASE = "http://localhost:8000/api/v1"
 
@@ -49,8 +48,10 @@ def poll_forecast(forecast_id: str) -> dict:
     return {"status": "timeout", "error": "Forecast timed out"}
 
 
-if st.sidebar.button("Run Forecast", type="primary", use_container_width=True):
-    with st.spinner(f"Running {params['model']} forecast for {params['ticker']}..."):
+run_btn = st.button("Run Forecast", type="primary")
+
+if run_btn:
+    with st.spinner(f"Running {params['model'].upper()} forecast for {params['ticker']}..."):
         try:
             result = run_forecast(
                 params["ticker"], params["model"],
@@ -67,13 +68,20 @@ if st.sidebar.button("Run Forecast", type="primary", use_container_width=True):
                 st.warning("Forecast timed out. Try again.")
         except Exception as e:
             st.error(f"Error: {e}")
-            st.info("Make sure the API server is running.")
+
+st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
 if "last_forecast" in st.session_state:
     forecast = st.session_state["last_forecast"]
     fp = st.session_state["last_forecast_params"]
 
-    st.success(f"Forecast complete: {fp['model'].upper()} | {fp['ticker']} | {fp['horizon']}-day horizon")
+    # Success banner
+    st.markdown(f"""
+    <div style="background:{COLORS['green_soft']}; border:1px solid {COLORS['green']}40; border-radius:8px; padding:12px 20px; margin-bottom:16px;">
+        <span style="color:{COLORS['green']}; font-weight:600;">Forecast complete</span>
+        <span style="color:{COLORS['text_secondary']}; margin-left:12px;">{fp['model'].upper()} | {fp['ticker']} | {fp['horizon']}-day horizon</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     try:
         historical = fetch_history(fp["ticker"], str(fp["start_date"]), str(fp["end_date"]))
@@ -84,9 +92,18 @@ if "last_forecast" in st.session_state:
             forecast["predictions"],
             title=f"{fp['ticker']} — {fp['model'].upper()} Forecast",
         )
+        fig.update_layout(
+            paper_bgcolor=COLORS["bg_primary"],
+            plot_bgcolor=COLORS["bg_secondary"],
+            font_color=COLORS["text_secondary"],
+            xaxis=dict(gridcolor=COLORS["border"], zerolinecolor=COLORS["border"]),
+            yaxis=dict(gridcolor=COLORS["border"], zerolinecolor=COLORS["border"]),
+            margin=dict(l=0, r=0, t=30, b=0),
+        )
         st.plotly_chart(fig, use_container_width=True)
 
-        st.subheader("Prediction Details")
+        # Prediction details
+        st.markdown(section_header("Prediction Details"), unsafe_allow_html=True)
         import pandas as pd
         pred_df = pd.DataFrame(forecast["predictions"])
         st.dataframe(pred_df, use_container_width=True)
@@ -94,4 +111,10 @@ if "last_forecast" in st.session_state:
     except Exception as e:
         st.error(f"Error rendering forecast: {e}")
 else:
-    st.info("Click 'Run Forecast' in the sidebar to generate predictions.")
+    st.markdown(f"""
+    <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:48px; text-align:center;">
+        <div style="font-size:2.5rem; margin-bottom:12px;">📈</div>
+        <p style="color:{COLORS['text_secondary']}; font-size:1.1rem; margin:0;">Click 'Run Forecast' to generate predictions</p>
+        <p style="color:{COLORS['text_muted']}; font-size:0.85rem; margin-top:8px;">Configure model and horizon using the controls above</p>
+    </div>
+    """, unsafe_allow_html=True)

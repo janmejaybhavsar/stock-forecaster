@@ -38,7 +38,6 @@ class LSTMModel(ForecastModel):
 
     def fit(self, train_df: pd.DataFrame, target_col: str = "Close") -> None:
         feature_cols = [c for c in train_df.columns if c not in ["Open", "High", "Low", "Volume"]]
-        target_idx = feature_cols.index(target_col) if target_col in feature_cols else 0
 
         data = train_df[feature_cols].values.astype(np.float32)
         targets = train_df[[target_col]].values.astype(np.float32)

@@ -1,8 +1,6 @@
 """Tests for API endpoints: portfolio, signals, auth flow."""
 
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 
 class TestRootEndpoint:

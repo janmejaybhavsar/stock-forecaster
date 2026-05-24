@@ -29,7 +29,6 @@ def analyze_portfolio(req: AnalyzeRequest, user: dict = Depends(get_current_user
     """Get AI analysis of the user's portfolio."""
     from src.coach.coach import PortfolioCoach
     from src.database.repositories import HoldingsRepository
-    import httpx
 
     repo = HoldingsRepository()
     holdings = repo.list_by_user(user["id"])

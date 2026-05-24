@@ -12,6 +12,8 @@ class StockInfo(BaseModel):
     fifty_two_week_high: float = 0
     fifty_two_week_low: float = 0
     current_price: float = 0
+    previous_close: float = 0
+    volume: int = 0
 
 
 class SearchResult(BaseModel):

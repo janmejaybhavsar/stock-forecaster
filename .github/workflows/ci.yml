@@ -30,7 +30,7 @@ jobs:
           pip install pytest-cov ruff
 
       - name: Lint with ruff
-        run: ruff check src/ tests/ --select E,F,W --ignore E501
+        run: ruff check src/ tests/ --select E,F,W --ignore E501,E402
 
       - name: Run tests
         run: pytest tests/ -v --tb=short

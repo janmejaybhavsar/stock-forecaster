@@ -1,7 +1,5 @@
 """Tests for authentication: password hashing, JWT tokens, and auth API endpoints."""
 
-import pytest
-
 
 class TestPasswordHashing:
     def test_hash_and_verify(self):

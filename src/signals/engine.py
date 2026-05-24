@@ -10,8 +10,6 @@ import logging
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-import pandas as pd
-
 from src.signals.rules import (
     RuleResult,
     evaluate_model_consensus,

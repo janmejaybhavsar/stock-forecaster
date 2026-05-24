@@ -10,7 +10,6 @@ dependencies = [
     "pandas>=2.0",
     "plotly>=5.20",
     "yfinance>=0.2.40",
-    "pandas-ta>=0.3.14b",
     "scikit-learn>=1.4",
     "xgboost>=2.0",
     "statsmodels>=0.14",
@@ -38,4 +37,4 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]
-ignore = ["E501"]
+ignore = ["E501", "E402"]

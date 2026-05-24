@@ -99,10 +99,10 @@ def evaluate_technical(df: pd.DataFrame) -> RuleResult:
 
             if bb_position < 0.1:
                 sig = 0.6
-                reasoning.append(f"Price near lower Bollinger Band — potential bounce (oversold)")
+                reasoning.append("Price near lower Bollinger Band — potential bounce (oversold)")
             elif bb_position > 0.9:
                 sig = -0.6
-                reasoning.append(f"Price near upper Bollinger Band — potential pullback (overbought)")
+                reasoning.append("Price near upper Bollinger Band — potential pullback (overbought)")
             elif bb_position < 0.3:
                 sig = 0.2
                 reasoning.append("Price in lower Bollinger zone — mild bullish signal")
@@ -175,7 +175,6 @@ def evaluate_technical(df: pd.DataFrame) -> RuleResult:
 
     # --- Stochastic Oscillator ---
     stoch_k = latest.get("stoch_k")
-    stoch_d = latest.get("stoch_d")
     if stoch_k is not None and pd.notna(stoch_k):
         details["stoch_k"] = round(stoch_k, 1)
         if stoch_k < 20:
