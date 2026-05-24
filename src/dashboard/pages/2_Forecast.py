@@ -115,6 +115,6 @@ else:
     <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:48px; text-align:center;">
         <div style="font-size:2.5rem; margin-bottom:12px;">📈</div>
         <p style="color:{COLORS['text_secondary']}; font-size:1.1rem; margin:0;">Click 'Run Forecast' to generate predictions</p>
-        <p style="color:{COLORS['text_muted']}; font-size:0.85rem; margin-top:8px;">Configure model and horizon in the sidebar</p>
+        <p style="color:{COLORS['text_muted']}; font-size:0.85rem; margin-top:8px;">Configure model and horizon using the controls above</p>
     </div>
     """, unsafe_allow_html=True)
