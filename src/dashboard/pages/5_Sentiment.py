@@ -12,8 +12,6 @@ from src.dashboard.components.theme import COLORS, section_header
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Sentiment</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True)
 
-from src.dashboard.components.auth_helper import API_BASE
-
 if st.button("Analyze Sentiment", type="primary"):
     with st.spinner("Analyzing news sentiment..."):
         try:
