@@ -63,7 +63,6 @@ for module in MODULES:
 
     badge = f" {module.badge}" if module_complete else ""
     status_text = "Complete" if module_complete else f"{module_steps_done}/{module_total}"
-    status_color = COLORS["green"] if module_complete else COLORS["text_muted"]
 
     with st.expander(
         f"{module.icon} **{module.title}** — {module.description} [{status_text}]{badge}",
