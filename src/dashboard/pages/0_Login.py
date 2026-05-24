@@ -8,10 +8,10 @@ if _root not in sys.path:
 import httpx
 import streamlit as st
 
-from src.dashboard.components.sidebar import render_sidebar
+from src.dashboard.components.sidebar import render_page_controls
+from src.dashboard.components.theme import COLORS, metric_card, section_header
 
-st.set_page_config(page_title="Login - Stock Forecaster", layout="wide")
-render_sidebar()
+render_page_controls()
 
 API_BASE = "http://localhost:8000/api/v1"
 
@@ -44,25 +44,38 @@ def _register(email: str, username: str, password: str) -> tuple[bool, str]:
 
 if st.session_state.get("auth_token"):
     user = st.session_state.get("auth_user", {})
-    st.header(f"Welcome, {user.get('username', 'User')}!")
-    st.success("You are logged in.")
 
-    st.markdown("### Quick Links")
+    st.markdown(f"""
+    <div style="text-align:center; padding:40px 0;">
+        <div style="
+            width:80px; height:80px; border-radius:50%;
+            background:linear-gradient(135deg, {COLORS['accent']}, #00b894);
+            display:inline-flex; align-items:center; justify-content:center;
+            font-size:2rem; font-weight:800; color:#0a0e17;
+            margin-bottom:16px;
+        ">{user.get('username', 'U')[0].upper()}</div>
+        <h2 style="color:{COLORS['text_primary']}; margin:0;">Welcome back, {user.get('username', 'User')}!</h2>
+        <p style="color:{COLORS['text_muted']}; margin-top:4px;">You are logged in and ready to go</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown(section_header("Quick Links"), unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.page_link("pages/6_Portfolio.py", label="My Portfolio", icon="💼")
+        st.page_link("pages/6_Portfolio.py", label="My Portfolio", icon="\U0001f4bc")
     with col2:
-        st.page_link("pages/2_Forecast.py", label="Run Forecast", icon="📈")
+        st.page_link("pages/2_Forecast.py", label="Run Forecast", icon="\U0001f4c8")
     with col3:
-        st.page_link("pages/1_Overview.py", label="Overview", icon="🏠")
+        st.page_link("pages/8_Daily_Briefing.py", label="Daily Briefing", icon="\U0001f4cb")
 
-    st.markdown("---")
-    if st.button("Logout", type="secondary"):
-        st.session_state.pop("auth_token", None)
-        st.session_state.pop("auth_user", None)
-        st.rerun()
+    st.markdown(f"<p style='color:{COLORS['text_muted']}; font-size:0.85rem; text-align:center; margin-top:32px;'>Use the Logout button in the sidebar to sign out</p>", unsafe_allow_html=True)
 else:
-    st.header("Account")
+    st.markdown(f"""
+    <div style="text-align:center; padding:24px 0 32px 0;">
+        <h1 style="color:{COLORS['text_primary']}; margin:0; font-weight:800;">Account</h1>
+        <p style="color:{COLORS['text_muted']}; margin-top:4px;">Sign in or create an account to unlock portfolio features</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     tab_login, tab_register = st.tabs(["Login", "Register"])
 
@@ -104,3 +117,11 @@ else:
                         st.success(msg)
                     else:
                         st.error(msg)
+
+    st.markdown(f"""
+    <div style="text-align:center; margin-top:32px; padding:20px; background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px;">
+        <p style="color:{COLORS['text_secondary']}; font-size:0.85rem; margin:0;">
+            Unlock portfolio tracking, AI coaching, signals, daily briefings, and more
+        </p>
+    </div>
+    """, unsafe_allow_html=True)

@@ -277,6 +277,32 @@ class NotificationRepository:
 
 
 # ---------------------------------------------------------------------------
+# User Settings
+# ---------------------------------------------------------------------------
+
+class UserSettingsRepository:
+    def get(self, user_id: str) -> dict:
+        row = get_db().execute("SELECT * FROM user_settings WHERE user_id = ?", (user_id,)).fetchone()
+        if row:
+            return dict(row)
+        return {"user_id": user_id, "llm_provider": "gemini", "llm_api_key": ""}
+
+    def save(self, user_id: str, llm_provider: str, llm_api_key: str) -> dict:
+        db = get_db()
+        db.execute(
+            """INSERT INTO user_settings (user_id, llm_provider, llm_api_key, updated_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET
+                   llm_provider = excluded.llm_provider,
+                   llm_api_key = excluded.llm_api_key,
+                   updated_at = excluded.updated_at""",
+            (user_id, llm_provider, llm_api_key, _now()),
+        )
+        db.commit()
+        return self.get(user_id)
+
+
+# ---------------------------------------------------------------------------
 # Learning Progress
 # ---------------------------------------------------------------------------
 

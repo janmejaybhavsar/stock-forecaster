@@ -50,6 +50,8 @@ class YFinanceProvider(DataProvider):
             "fifty_two_week_high": info.get("fiftyTwoWeekHigh", 0),
             "fifty_two_week_low": info.get("fiftyTwoWeekLow", 0),
             "current_price": info.get("currentPrice", info.get("regularMarketPrice", 0)),
+            "previous_close": info.get("previousClose", info.get("regularMarketPreviousClose", 0)),
+            "volume": info.get("volume", info.get("regularMarketVolume", 0)),
         }
 
     def search(self, query: str) -> list[dict]:

@@ -7,21 +7,24 @@ import httpx
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.dashboard.components.sidebar import render_sidebar
+from src.dashboard.components.sidebar import render_page_controls
+from src.dashboard.components.theme import COLORS, metric_card, section_header
 
-st.set_page_config(page_title="Portfolio - Stock Forecaster", layout="wide")
-params = render_sidebar()
+st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Portfolio</h1>", unsafe_allow_html=True)
+params = render_page_controls()
 
 API_BASE = "http://localhost:8000/api/v1"
 
 if not st.session_state.get("auth_token"):
-    st.warning("Please log in to access your portfolio.")
-    st.page_link("pages/0_Login.py", label="Go to Login", icon="🔑")
+    st.markdown(f"""
+    <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:32px; text-align:center;">
+        <p style="color:{COLORS['text_secondary']}; font-size:1.1rem;">Please log in to access your portfolio</p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.page_link("pages/0_Login.py", label="Go to Login", icon="\U0001f511")
     st.stop()
 
 headers = {"Authorization": f"Bearer {st.session_state.auth_token}"}
-
-st.header("My Portfolio")
 
 # --- Add Holding Form ---
 with st.expander("Add New Holding", expanded=False):
@@ -63,66 +66,92 @@ holdings = portfolio["holdings"]
 summary = portfolio["summary"]
 
 if not holdings:
-    st.info("Your portfolio is empty. Add holdings above to get started!")
+    st.markdown(f"""
+    <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:48px; text-align:center;">
+        <div style="font-size:2.5rem; margin-bottom:12px;">📂</div>
+        <p style="color:{COLORS['text_secondary']}; font-size:1.1rem;">Your portfolio is empty</p>
+        <p style="color:{COLORS['text_muted']}; font-size:0.85rem;">Add holdings above to get started!</p>
+    </div>
+    """, unsafe_allow_html=True)
     st.stop()
 
 # --- Summary Cards ---
-st.markdown("### Portfolio Summary")
+st.markdown(section_header("Summary"), unsafe_allow_html=True)
+
+pnl_color = "green" if summary["total_pnl"] >= 0 else "red"
 c1, c2, c3, c4 = st.columns(4)
 with c1:
-    st.metric("Total Value", f"${summary['total_value']:,.2f}")
+    st.markdown(metric_card("Total Value", f"${summary['total_value']:,.2f}"), unsafe_allow_html=True)
 with c2:
-    st.metric("Total Cost", f"${summary['total_cost']:,.2f}")
+    st.markdown(metric_card("Total Cost", f"${summary['total_cost']:,.2f}"), unsafe_allow_html=True)
 with c3:
-    st.metric("Total P&L", f"${summary['total_pnl']:,.2f}", f"{summary['total_pnl_pct']:+.1f}%")
+    st.markdown(metric_card("Total P&L", f"${summary['total_pnl']:,.2f}", f"{summary['total_pnl_pct']:+.1f}%", pnl_color), unsafe_allow_html=True)
 with c4:
-    st.metric("Holdings", summary["holdings_count"])
+    st.markdown(metric_card("Holdings", str(summary["holdings_count"])), unsafe_allow_html=True)
 
-st.markdown("---")
+st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
 # --- Holdings Table and Chart ---
 col_table, col_chart = st.columns([3, 2])
 
 with col_table:
-    st.markdown("### Holdings")
+    st.markdown(section_header("Holdings"), unsafe_allow_html=True)
     for h in holdings:
-        with st.container(border=True):
-            tc1, tc2, tc3, tc4, tc5 = st.columns([2, 1.5, 1.5, 1.5, 0.5])
-            with tc1:
-                st.markdown(f"**{h['ticker']}**")
-                st.caption(f"{h['shares']} shares @ ${h['avg_cost']:.2f}")
-            with tc2:
-                st.metric("Current", f"${h['current_price']:,.2f}")
-            with tc3:
-                st.metric("Value", f"${h['market_value']:,.2f}")
-            with tc4:
-                st.metric("P&L", f"${h['pnl']:,.2f}", f"{h['pnl_pct']:+.1f}%")
-            with tc5:
-                if st.button("X", key=f"del_{h['id']}", help="Remove holding"):
-                    httpx.delete(f"{API_BASE}/portfolio/holdings/{h['id']}", headers=headers, timeout=10)
-                    st.rerun()
+        pnl_color_h = COLORS["green"] if h["pnl"] >= 0 else COLORS["red"]
+        st.markdown(f"""
+        <div style="
+            display:flex; align-items:center; justify-content:space-between;
+            background:{COLORS['bg_card']}; border:1px solid {COLORS['border']};
+            border-radius:10px; padding:16px 20px; margin-bottom:8px;
+        ">
+            <div>
+                <div style="color:{COLORS['text_primary']}; font-weight:700; font-size:1.05rem;">{h['ticker']}</div>
+                <div style="color:{COLORS['text_muted']}; font-size:0.8rem;">{h['shares']} shares @ ${h['avg_cost']:.2f}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:24px;">
+                <div style="text-align:right;">
+                    <div style="color:{COLORS['text_primary']}; font-weight:600;">${h['current_price']:,.2f}</div>
+                    <div style="color:{COLORS['text_muted']}; font-size:0.75rem;">Current</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="color:{COLORS['text_primary']}; font-weight:600;">${h['market_value']:,.2f}</div>
+                    <div style="color:{COLORS['text_muted']}; font-size:0.75rem;">Value</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="color:{pnl_color_h}; font-weight:700;">${h['pnl']:+,.2f}</div>
+                    <div style="color:{pnl_color_h}; font-size:0.75rem;">{h['pnl_pct']:+.1f}%</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Delete button (separate so it doesn't break the HTML card)
+        if st.button(f"Remove {h['ticker']}", key=f"del_{h['id']}", type="secondary"):
+            httpx.delete(f"{API_BASE}/portfolio/holdings/{h['id']}", headers=headers, timeout=10)
+            st.rerun()
 
 with col_chart:
-    st.markdown("### Allocation")
+    st.markdown(section_header("Allocation"), unsafe_allow_html=True)
     labels = [h["ticker"] for h in holdings]
     values = [h["market_value"] for h in holdings]
+
+    chart_colors = [COLORS["accent"], COLORS["blue"], COLORS["yellow"], COLORS["red"],
+                    COLORS["purple"], "#26c6da", "#ff8a65", "#a5d6a7"]
 
     fig = go.Figure(data=[go.Pie(
         labels=labels,
         values=values,
-        hole=0.4,
+        hole=0.5,
         textinfo="label+percent",
-        marker=dict(colors=[
-            "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4",
-            "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F",
-        ]),
+        textfont=dict(color=COLORS["text_primary"], size=12),
+        marker=dict(colors=chart_colors[:len(labels)]),
     )])
     fig.update_layout(
-        template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         height=400,
         margin=dict(t=20, b=20, l=20, r=20),
         showlegend=False,
+        font=dict(color=COLORS["text_secondary"]),
     )
     st.plotly_chart(fig, use_container_width=True)

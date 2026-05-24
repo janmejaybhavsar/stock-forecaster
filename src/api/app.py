@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.routes import auth, backtests, coach, forecasts, models, portfolio, signals, stocks, watchlists
+from src.api.routes import auth, backtests, coach, forecasts, models, portfolio, settings, signals, stocks, watchlists
 from src.database.connection import init_db
 
 
@@ -46,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(portfolio.router, prefix="/api/v1/portfolio")
     app.include_router(signals.router, prefix="/api/v1/signals")
     app.include_router(coach.router, prefix="/api/v1/coach")
+    app.include_router(settings.router, prefix="/api/v1/user")
 
     @app.get("/")
     def root():
