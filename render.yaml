@@ -1,0 +1,39 @@
+services:
+  # FastAPI Backend
+  - type: web
+    name: stock-forecaster-api
+    runtime: python
+    plan: free
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      pip install torch --index-url https://download.pytorch.org/whl/cpu
+    startCommand: uvicorn src.api.app:create_app --factory --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: DATA_DIR
+        value: /opt/render/project/src/data
+      - key: JWT_SECRET
+        value: generateValue
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+
+  # Streamlit Dashboard
+  - type: web
+    name: stock-forecaster-dashboard
+    runtime: python
+    plan: free
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      pip install torch --index-url https://download.pytorch.org/whl/cpu
+    startCommand: streamlit run src/dashboard/app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true --browser.gatherUsageStats false
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: API_BASE_URL
+        value: https://stock-forecaster-api.onrender.com
+      - key: PYTHONPATH
+        value: /opt/render/project/src

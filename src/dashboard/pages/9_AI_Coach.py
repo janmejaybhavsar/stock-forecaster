@@ -12,7 +12,7 @@ from src.dashboard.components.theme import COLORS, section_header
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>AI Coach</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True)
 
-API_BASE = "http://localhost:8000/api/v1"
+from src.dashboard.components.auth_helper import API_BASE
 
 # --- Auth Check ---
 if not st.session_state.get("auth_token"):

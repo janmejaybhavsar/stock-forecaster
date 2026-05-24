@@ -13,7 +13,7 @@ from src.dashboard.components.theme import COLORS, section_header
 
 render_page_controls()
 
-API_BASE = "http://localhost:8000/api/v1"
+from src.dashboard.components.auth_helper import API_BASE
 
 
 def _login(email: str, password: str) -> tuple[bool, str]:
