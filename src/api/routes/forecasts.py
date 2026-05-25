@@ -7,6 +7,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from src.api.schemas import ForecastRequest, ForecastResponse
+from src.auth.ticker_validator import validate_ticker
 from src.database.repositories import ForecastHistoryRepository
 
 _limiter = Limiter(key_func=get_remote_address)
@@ -55,6 +56,9 @@ def _run_forecast(forecast_id: str, req: ForecastRequest) -> None:
 @router.post("/run", response_model=ForecastResponse)
 @_limiter.limit("10/minute")
 def run_forecast(request: Request, req: ForecastRequest, bg: BackgroundTasks):
+    is_valid, error = validate_ticker(req.ticker)
+    if not is_valid:
+        raise HTTPException(400, error)
     record = _repo.create(
         ticker=req.ticker.upper().strip(),
         model_name=req.model_name,

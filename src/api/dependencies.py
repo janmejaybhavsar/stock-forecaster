@@ -20,6 +20,14 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     payload = decode_token(token)
     if not payload:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+
+    # Check if token has been revoked
+    jti = payload.get("jti")
+    if jti:
+        from src.api.routes.auth import is_token_revoked
+        if is_token_revoked(jti):
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token has been revoked")
+
     user = _user_repo.get_by_id(payload.get("sub", ""))
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
@@ -32,4 +40,10 @@ def get_optional_user(token: str = Depends(oauth2_scheme)) -> dict | None:
     payload = decode_token(token)
     if not payload:
         return None
+    # Check revocation for optional auth too
+    jti = payload.get("jti")
+    if jti:
+        from src.api.routes.auth import is_token_revoked
+        if is_token_revoked(jti):
+            return None
     return _user_repo.get_by_id(payload.get("sub", ""))

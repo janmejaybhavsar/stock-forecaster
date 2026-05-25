@@ -1,3 +1,4 @@
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,6 +15,25 @@ from src.api.routes import auth, backtests, coach, forecasts, models, portfolio,
 from src.database.connection import init_db
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+
+# CORS origins: configurable via CORS_ORIGINS env var (comma-separated) for production
+_DEFAULT_ORIGINS = [
+    "http://localhost:8501",
+    "http://127.0.0.1:8501",
+    "http://localhost:3000",
+]
+
+
+def _get_cors_origins() -> list[str]:
+    """Get allowed origins from CORS_ORIGINS env var / settings, or use defaults for development."""
+    env_origins = os.environ.get("CORS_ORIGINS", "")
+    if env_origins:
+        return [o.strip() for o in env_origins.split(",") if o.strip()]
+    from config.settings import get_settings
+    settings = get_settings()
+    if settings.cors_origins:
+        return [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    return _DEFAULT_ORIGINS
 
 
 @asynccontextmanager
@@ -36,15 +56,10 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:8501",
-            "http://127.0.0.1:8501",
-            "http://localhost:3000",
-            "https://*.onrender.com",
-        ],
+        allow_origins=_get_cors_origins(),
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "Accept"],
     )
 
     app.include_router(auth.router, prefix="/api/v1/auth")
