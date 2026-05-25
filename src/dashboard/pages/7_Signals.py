@@ -9,7 +9,7 @@ import streamlit as st
 
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, section_header, metric_card
-from src.dashboard.components.ui_helpers import error_card
+from src.dashboard.components.ui_helpers import error_card, loading_skeleton
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Signals</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True, show_horizon=True)
@@ -32,6 +32,7 @@ with col_run:
     run_signal = st.button(f"Analyze {ticker}", type="primary", use_container_width=True)
 
 if run_signal:
+    loading_skeleton(lines=5, height="1.4rem")
     with st.spinner(f"Analyzing {ticker}... Running models and computing signals"):
         try:
             r = httpx.get(

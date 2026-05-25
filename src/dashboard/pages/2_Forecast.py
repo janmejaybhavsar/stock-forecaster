@@ -10,7 +10,7 @@ import streamlit as st
 from src.dashboard.components.charts import forecast_chart
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, section_header
-from src.dashboard.components.ui_helpers import empty_state, error_card
+from src.dashboard.components.ui_helpers import empty_state, error_card, loading_skeleton
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Forecast</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True, show_dates=True, show_model=True, show_horizon=True, show_sentiment=True)
@@ -52,6 +52,7 @@ def poll_forecast(forecast_id: str) -> dict:
 run_btn = st.button("Run Forecast", type="primary")
 
 if run_btn:
+    loading_skeleton(lines=4, height="1.5rem")
     with st.spinner(f"Running {params['model'].upper()} forecast for {params['ticker']}..."):
         try:
             result = run_forecast(

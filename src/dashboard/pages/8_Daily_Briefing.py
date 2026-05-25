@@ -8,7 +8,7 @@ import streamlit as st
 
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, metric_card, section_header, notification_card
-from src.dashboard.components.ui_helpers import empty_state, error_card
+from src.dashboard.components.ui_helpers import empty_state, error_card, loading_card_skeleton, responsive_columns
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Daily Briefing</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_horizon=True)
@@ -71,7 +71,12 @@ def load_portfolio(_headers_tuple):
     return None
 
 
+_briefing_placeholder = st.empty()
+with _briefing_placeholder.container():
+    loading_card_skeleton(count=4)
+
 portfolio = load_portfolio(("Authorization", f"Bearer {st.session_state.auth_token}"))
+_briefing_placeholder.empty()
 
 if not portfolio or not portfolio.get("holdings"):
     empty_state("📂", "Your portfolio is empty", "Add holdings to get a personalized briefing!")
@@ -102,14 +107,14 @@ except Exception:
 st.markdown(section_header("Portfolio Snapshot", "Current state of your holdings"), unsafe_allow_html=True)
 
 pnl_color = "green" if summary["total_pnl"] >= 0 else "red"
-c1, c2, c3, c4 = st.columns(4)
-with c1:
+cols = responsive_columns(4)
+with cols[0]:
     st.markdown(metric_card("Total Value", f"${summary['total_value']:,.2f}"), unsafe_allow_html=True)
-with c2:
+with cols[1]:
     st.markdown(metric_card("Total Cost", f"${summary['total_cost']:,.2f}"), unsafe_allow_html=True)
-with c3:
+with cols[2]:
     st.markdown(metric_card("Total P&L", f"${summary['total_pnl']:,.2f}", f"{summary['total_pnl_pct']:+.1f}%", pnl_color), unsafe_allow_html=True)
-with c4:
+with cols[3]:
     st.markdown(metric_card("Holdings", str(summary["holdings_count"])), unsafe_allow_html=True)
 
 st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)

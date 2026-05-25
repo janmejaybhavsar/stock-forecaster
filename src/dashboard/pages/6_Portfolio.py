@@ -9,7 +9,7 @@ import streamlit as st
 
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, metric_card, section_header
-from src.dashboard.components.ui_helpers import empty_state, error_card
+from src.dashboard.components.ui_helpers import empty_state, error_card, loading_card_skeleton, responsive_columns
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Portfolio</h1>", unsafe_allow_html=True)
 params = render_page_controls()
@@ -55,11 +55,17 @@ with st.expander("Add New Holding", expanded=False):
                 st.warning("Enter a ticker symbol")
 
 # --- Load Portfolio ---
+_portfolio_placeholder = st.empty()
+with _portfolio_placeholder.container():
+    loading_card_skeleton(count=4)
+
 try:
     r = httpx.get(f"{API_BASE}/portfolio/", headers=headers, timeout=30)
     r.raise_for_status()
     portfolio = r.json()
+    _portfolio_placeholder.empty()
 except Exception as e:
+    _portfolio_placeholder.empty()
     error_card("Portfolio Load Failed", str(e), "Check that the API server is running and you're logged in.")
     st.stop()
 
@@ -74,14 +80,14 @@ if not holdings:
 st.markdown(section_header("Summary"), unsafe_allow_html=True)
 
 pnl_color = "green" if summary["total_pnl"] >= 0 else "red"
-c1, c2, c3, c4 = st.columns(4)
-with c1:
+cols = responsive_columns(4)
+with cols[0]:
     st.markdown(metric_card("Total Value", f"${summary['total_value']:,.2f}"), unsafe_allow_html=True)
-with c2:
+with cols[1]:
     st.markdown(metric_card("Total Cost", f"${summary['total_cost']:,.2f}"), unsafe_allow_html=True)
-with c3:
+with cols[2]:
     st.markdown(metric_card("Total P&L", f"${summary['total_pnl']:,.2f}", f"{summary['total_pnl_pct']:+.1f}%", pnl_color), unsafe_allow_html=True)
-with c4:
+with cols[3]:
     st.markdown(metric_card("Holdings", str(summary["holdings_count"])), unsafe_allow_html=True)
 
 st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
