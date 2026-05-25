@@ -48,7 +48,7 @@ def _run_backtest(backtest_id: str, req: BacktestRequest) -> None:
             status="completed",
         )
     except Exception as e:
-        logger.error(f"Backtest {backtest_id} failed: {e}")
+        logger.exception("Backtest %s failed", backtest_id)
         _repo.update_result(
             backtest_id,
             metrics={},

@@ -46,7 +46,7 @@ def _run_forecast(forecast_id: str, req: ForecastRequest) -> None:
 
         _repo.update_result(forecast_id, predictions=pred_records, status="completed")
     except Exception as e:
-        logger.error(f"Forecast {forecast_id} failed: {e}")
+        logger.exception(f"Forecast {forecast_id} failed: {e}")
         _repo.update_result(forecast_id, predictions=[], status="failed", error=str(e))
 
 
