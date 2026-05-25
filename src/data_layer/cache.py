@@ -15,11 +15,19 @@ _info_cache: dict[str, tuple[float, dict]] = {}
 _info_cache_lock = threading.Lock()
 
 
+def _prune_expired_info_cache(now: float) -> None:
+    expired_keys = [k for k, (ts, _) in _info_cache.items() if (now - ts) >= _INFO_CACHE_TTL]
+    for k in expired_keys:
+        _info_cache.pop(k, None)
+
+
 def _get_cached_info(ticker: str) -> dict | None:
     """Return cached info if still valid, else None."""
     with _info_cache_lock:
+        now = time.time()
+        _prune_expired_info_cache(now)
         entry = _info_cache.get(ticker)
-        if entry and (time.time() - entry[0]) < _INFO_CACHE_TTL:
+        if entry and (now - entry[0]) < _INFO_CACHE_TTL:
             return entry[1]
     return None
 
@@ -27,7 +35,9 @@ def _get_cached_info(ticker: str) -> dict | None:
 def _set_cached_info(ticker: str, data: dict) -> None:
     """Store info in cache with current timestamp."""
     with _info_cache_lock:
-        _info_cache[ticker] = (time.time(), data)
+        now = time.time()
+        _prune_expired_info_cache(now)
+        _info_cache[ticker] = (now, data)
 
 
 class CachedProvider(DataProvider):
@@ -113,12 +123,12 @@ class CachedProvider(DataProvider):
         return df
 
     def get_info(self, ticker: str) -> dict:
-        ticker_upper = ticker.upper()
-        cached = _get_cached_info(ticker_upper)
+        ticker_norm = ticker.upper().strip()
+        cached = _get_cached_info(ticker_norm)
         if cached is not None:
             return cached
-        info = self._provider.get_info(ticker)
-        _set_cached_info(ticker_upper, info)
+        info = self._provider.get_info(ticker_norm)
+        _set_cached_info(ticker_norm, info)
         return info
 
     def search(self, query: str) -> list[dict]:

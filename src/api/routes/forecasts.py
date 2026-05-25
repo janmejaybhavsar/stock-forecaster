@@ -1,8 +1,9 @@
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -16,6 +17,7 @@ router = APIRouter(tags=["forecasts"])
 logger = logging.getLogger(__name__)
 
 _repo = ForecastHistoryRepository()
+_ALLOWED_COMPARE_MODELS = {"arima", "xgboost", "lstm", "transformer", "prophet", "ensemble"}
 
 
 def _run_forecast(forecast_id: str, req: ForecastRequest) -> None:
@@ -99,20 +101,30 @@ class CompareRequest(BaseModel):
     models: list[str] = Field(..., min_length=2, max_length=6)
     horizon: int = Field(5, ge=1, le=30)
 
+    @field_validator("ticker")
+    @classmethod
+    def validate_ticker(cls, v: str) -> str:
+        v = v.upper().strip()
+        if not re.match(r"^[A-Z0-9\.\-\^]+$", v):
+            raise ValueError("Ticker must contain only letters, numbers, dots, hyphens, or ^")
+        return v
 
-def _run_single_model(ticker: str, model_name: str, horizon: int) -> dict:
+    @field_validator("models")
+    @classmethod
+    def validate_models(cls, values: list[str]) -> list[str]:
+        normalized = [m.lower().strip() for m in values]
+        if any(m not in _ALLOWED_COMPARE_MODELS for m in normalized):
+            raise ValueError(f"Models must be one of: {sorted(_ALLOWED_COMPARE_MODELS)}")
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("Models must be unique")
+        return normalized
+
+
+def _run_single_model(ticker: str, model_name: str, horizon: int, df) -> dict:
     """Run a single model forecast synchronously — called in a thread pool."""
     try:
-        from datetime import date, timedelta
-
-        from src.data_layer.provider_factory import get_provider
         from src.features.pipeline import FeaturePipeline
         from src.models.model_registry import get_model
-
-        provider = get_provider()
-        end = date.today()
-        start = end - timedelta(days=730)
-        df = provider.get_historical(ticker, start, end)
 
         pipeline = FeaturePipeline()
         features_df = pipeline.build(ticker, df, include_sentiment=False)
@@ -145,6 +157,10 @@ def compare_models(request: Request, req: CompareRequest):
     except ValueError as e:
         raise HTTPException(400, str(e))
     results = {}
+    provider = get_provider()
+    end = date.today()
+    start = end - timedelta(days=730)
+    df = provider.get_historical(req.ticker, start, end)
 
     with ThreadPoolExecutor(max_workers=min(len(req.models), 4)) as executor:
         futures = {

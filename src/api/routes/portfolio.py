@@ -40,6 +40,15 @@ def _fetch_single_info(provider, ticker: str) -> tuple[str, dict]:
 
 def _enrich_holdings(holdings: list[dict]) -> tuple[list[dict], dict]:
     """Enrich holdings with live prices using parallel fetches, then compute summary."""
+    if not holdings:
+        return [], {
+            "total_value": 0.0,
+            "total_cost": 0.0,
+            "total_pnl": 0.0,
+            "total_pnl_pct": 0.0,
+            "holdings_count": 0,
+        }
+
     provider = get_data_provider()
 
     # Fetch all ticker info in parallel (up to 8 concurrent)
