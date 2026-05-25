@@ -7,11 +7,10 @@ from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from src.api.limiter import limiter
 from src.api.schemas import ForecastRequest, ForecastResponse
 from src.auth.ticker_validator import sanitize_ticker
 from src.database.repositories import ForecastHistoryRepository
-
-_limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(tags=["forecasts"])
 logger = logging.getLogger(__name__)
@@ -51,12 +50,12 @@ def _run_forecast(forecast_id: str, req: ForecastRequest) -> None:
 
         _repo.update_result(forecast_id, predictions=pred_records, status="completed")
     except Exception as e:
-        logger.error(f"Forecast {forecast_id} failed: {e}")
+        logger.exception(f"Forecast {forecast_id} failed: {e}")
         _repo.update_result(forecast_id, predictions=[], status="failed", error=str(e))
 
 
 @router.post("/run", response_model=ForecastResponse)
-@_limiter.limit("10/minute")
+@limiter.limit("10/minute")
 def run_forecast(request: Request, req: ForecastRequest, bg: BackgroundTasks):
     try:
         normalized_ticker = sanitize_ticker(req.ticker)

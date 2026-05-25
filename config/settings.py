@@ -1,8 +1,12 @@
+import logging
 import os
 import secrets
 from pathlib import Path
 
+from dotenv import dotenv_values
 from pydantic_settings import BaseSettings
+
+logger = logging.getLogger(__name__)
 
 
 def _stable_jwt_secret() -> str:
@@ -11,14 +15,20 @@ def _stable_jwt_secret() -> str:
         return os.environ["JWT_SECRET"]
     env_path = Path(__file__).resolve().parent.parent / ".env"
     if env_path.exists():
-        for line in env_path.read_text().splitlines():
-            if line.startswith("JWT_SECRET="):
-                return line.split("=", 1)[1].strip().strip('"').strip("'")
+        try:
+            secret_from_file = dotenv_values(env_path).get("JWT_SECRET")
+            if secret_from_file:
+                return str(secret_from_file)
+        except OSError as exc:
+            logger.warning("Unable to read JWT_SECRET from %s: %s", env_path, exc)
     # Generate and persist so it survives restarts
     secret = secrets.token_urlsafe(32)
-    env_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(env_path, "a") as f:
-        f.write(f"\nJWT_SECRET={secret}\n")
+    try:
+        env_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(env_path, "a", encoding="utf-8") as f:
+            f.write(f"\nJWT_SECRET={secret}\n")
+    except OSError as exc:
+        logger.warning("Unable to persist JWT_SECRET to %s; using in-memory secret: %s", env_path, exc)
     return secret
 
 

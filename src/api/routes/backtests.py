@@ -1,13 +1,10 @@
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
+from src.api.limiter import limiter
 from src.api.schemas import BacktestRequest, BacktestResponse
 from src.database.repositories import BacktestHistoryRepository
-
-_limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(tags=["backtests"])
 logger = logging.getLogger(__name__)
@@ -48,7 +45,7 @@ def _run_backtest(backtest_id: str, req: BacktestRequest) -> None:
             status="completed",
         )
     except Exception as e:
-        logger.error(f"Backtest {backtest_id} failed: {e}")
+        logger.exception("Backtest %s failed", backtest_id)
         _repo.update_result(
             backtest_id,
             metrics={},
@@ -60,7 +57,7 @@ def _run_backtest(backtest_id: str, req: BacktestRequest) -> None:
 
 
 @router.post("/run", response_model=BacktestResponse)
-@_limiter.limit("5/minute")
+@limiter.limit("5/minute")
 def run_backtest(request: Request, req: BacktestRequest, bg: BackgroundTasks):
     record = _repo.create(
         ticker=req.ticker.upper().strip(),

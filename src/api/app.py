@@ -8,10 +8,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+from slowapi.middleware import SlowAPIMiddleware
 
+from src.api.limiter import limiter
 from src.api.routes import auth, backtests, coach, forecasts, models, portfolio, settings, signals, stocks, watchlists
 from src.database.connection import init_db
 
@@ -67,6 +68,7 @@ def create_app() -> FastAPI:
 
     # Rate limiting
     app.state.limiter = limiter
+    app.add_middleware(SlowAPIMiddleware)
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     app.add_middleware(
