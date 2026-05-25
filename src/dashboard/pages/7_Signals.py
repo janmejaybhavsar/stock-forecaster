@@ -90,9 +90,9 @@ if "_signal_result" in st.session_state:
                 "bgcolor": COLORS["bg_card"],
                 "bordercolor": COLORS["border"],
                 "steps": [
-                    {"range": [0, 33], "color": f"{COLORS['red']}15"},
-                    {"range": [33, 66], "color": f"{COLORS['yellow']}15"},
-                    {"range": [66, 100], "color": f"{COLORS['green']}15"},
+                    {"range": [0, 33], "color": "rgba(255,71,87,0.08)"},
+                    {"range": [33, 66], "color": "rgba(255,167,38,0.08)"},
+                    {"range": [66, 100], "color": "rgba(0,212,170,0.08)"},
                 ],
             },
         ))
