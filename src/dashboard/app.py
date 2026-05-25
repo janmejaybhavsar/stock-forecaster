@@ -15,9 +15,12 @@ st.set_page_config(
 )
 
 from src.dashboard.components.theme import inject_custom_css, COLORS
+from src.dashboard.components.fintech_ui import inject_keyboard_shortcuts, inject_pnl_animation_css
 
-# --- Inject global CSS ---
+# --- Inject global CSS + keyboard shortcuts ---
 inject_custom_css()
+inject_pnl_animation_css()
+inject_keyboard_shortcuts()
 
 # --- App Logo (renders above navigation in sidebar) ---
 _logo_svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 44">

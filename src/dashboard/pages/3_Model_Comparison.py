@@ -3,8 +3,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
-import time
-
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -32,37 +30,28 @@ if compare_btn:
     else:
         import httpx
 
-        results = {}
-        progress = st.progress(0)
+        with st.spinner(f"Running {len(models_to_compare)} models in parallel..."):
+            try:
+                r = httpx.post(f"{API_BASE}/forecasts/compare", json={
+                    "ticker": params["ticker"],
+                    "models": models_to_compare,
+                    "horizon": params["horizon"],
+                }, timeout=300)
+                r.raise_for_status()
+                compare_data = r.json()
 
-        for i, model in enumerate(models_to_compare):
-            with st.spinner(f"Running {model.upper()}..."):
-                try:
-                    r = httpx.post(f"{API_BASE}/forecasts/run", json={
-                        "ticker": params["ticker"],
-                        "model_name": model,
-                        "horizon": params["horizon"],
-                        "include_sentiment": False,
-                    }, timeout=30)
-                    job = r.json()
+                results = {}
+                for model_name, model_result in compare_data["results"].items():
+                    if model_result["status"] == "completed":
+                        results[model_name] = model_result
+                    else:
+                        st.warning(f"{model_name.upper()} failed: {model_result.get('error', 'Unknown')}")
 
-                    for _ in range(120):
-                        r = httpx.get(f"{API_BASE}/forecasts/{job['id']}", timeout=30)
-                        result = r.json()
-                        if result["status"] != "running":
-                            break
-                        time.sleep(2)
-
-                    if result["status"] == "completed":
-                        results[model] = result
-                except Exception as e:
-                    st.warning(f"{model.upper()} failed: {e}")
-
-            progress.progress((i + 1) / len(models_to_compare))
-
-        if results:
-            st.session_state["comparison_results"] = results
-            st.session_state["comparison_params"] = params.copy()
+                if results:
+                    st.session_state["comparison_results"] = results
+                    st.session_state["comparison_params"] = params.copy()
+            except Exception as e:
+                error_card("Comparison Failed", str(e), "Check that the API server is running.")
 
 st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 

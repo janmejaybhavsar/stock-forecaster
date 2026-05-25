@@ -35,6 +35,19 @@ class TestJWTTokens:
         assert decode_token("invalid.token.string") is None
         assert decode_token("") is None
 
+    def test_revoked_token_tracking(self):
+        from src.auth.revocation import is_token_revoked, revoke_token
+        from src.auth.security import create_access_token, decode_token
+
+        token = create_access_token({"sub": "user123"})
+        payload = decode_token(token)
+        assert payload is not None
+
+        jti = payload["jti"]
+        assert is_token_revoked(jti) is False
+        revoke_token(jti, payload["exp"])
+        assert is_token_revoked(jti) is True
+
 
 class TestAuthAPI:
     def test_register_and_login(self, client):

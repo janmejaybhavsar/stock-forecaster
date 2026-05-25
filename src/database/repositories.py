@@ -285,14 +285,39 @@ class UserSettingsRepository:
         row = get_db().execute("SELECT * FROM user_settings WHERE user_id = ?", (user_id,)).fetchone()
         if row:
             data = dict(row)
-            if data.get("llm_api_key"):
-                data["llm_api_key"] = ""
+            # Never return the encrypted key to the frontend
+            data["llm_api_key_configured"] = bool(data.get("llm_api_key"))
+            data["llm_api_key"] = ""
             return data
-        return {"user_id": user_id, "llm_provider": "gemini", "llm_api_key": ""}
+        return {
+            "user_id": user_id,
+            "llm_provider": "gemini",
+            "llm_api_key": "",
+            "llm_api_key_configured": False,
+        }
+
+    def get_decrypted_key(self, user_id: str) -> str:
+        """Retrieve and decrypt the stored API key (for server-side use only)."""
+        from src.auth.encryption import decrypt_value
+
+        row = get_db().execute("SELECT llm_api_key FROM user_settings WHERE user_id = ?", (user_id,)).fetchone()
+        if row and row["llm_api_key"]:
+            return decrypt_value(row["llm_api_key"])
+        return ""
 
     def save(self, user_id: str, llm_provider: str, llm_api_key: str) -> dict:
+        from src.auth.encryption import encrypt_value
+
         db = get_db()
-        stored_api_key = "__configured__" if llm_api_key else ""
+        # Encrypt the API key before storing
+        existing = db.execute(
+            "SELECT llm_api_key FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        if llm_api_key:
+            stored_api_key = encrypt_value(llm_api_key)
+        else:
+            stored_api_key = existing["llm_api_key"] if existing else ""
         db.execute(
             """INSERT INTO user_settings (user_id, llm_provider, llm_api_key, updated_at)
                VALUES (?, ?, ?, ?)

@@ -1,3 +1,5 @@
+import os
+import re
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,6 +17,38 @@ from src.database.connection import init_db
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 
+# CORS origins: configurable via CORS_ORIGINS env var (comma-separated) for production
+_DEFAULT_ORIGINS = [
+    "http://localhost:8501",
+    "http://127.0.0.1:8501",
+    "http://localhost:3000",
+]
+
+
+def _get_cors_origins() -> list[str]:
+    """Get allowed origins from CORS_ORIGINS env var / settings, or use defaults for development."""
+    env_origins = os.environ.get("CORS_ORIGINS", "")
+    if env_origins:
+        return [o.strip() for o in env_origins.split(",") if o.strip()]
+    from config.settings import get_settings
+    settings = get_settings()
+    if settings.cors_origins:
+        return [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    return _DEFAULT_ORIGINS
+
+
+def _build_cors_config() -> tuple[list[str], str | None]:
+    origins = _get_cors_origins()
+    explicit_origins: list[str] = []
+    wildcard_patterns: list[str] = []
+    for origin in origins:
+        if "*" in origin:
+            wildcard_patterns.append(re.escape(origin).replace(r"\*", ".*"))
+        else:
+            explicit_origins.append(origin)
+    origin_regex = "|".join(f"^{pattern}$" for pattern in wildcard_patterns) if wildcard_patterns else None
+    return explicit_origins, origin_regex
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,6 +57,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    cors_origins, cors_origin_regex = _build_cors_config()
     app = FastAPI(
         title="Stock Forecaster API",
         version="2.0.0",
@@ -36,15 +71,11 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:8501",
-            "http://127.0.0.1:8501",
-            "http://localhost:3000",
-            "https://*.onrender.com",
-        ],
+        allow_origins=cors_origins,
+        allow_origin_regex=cors_origin_regex,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "Accept"],
     )
 
     app.include_router(auth.router, prefix="/api/v1/auth")

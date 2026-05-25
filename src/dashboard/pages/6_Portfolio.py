@@ -1,20 +1,30 @@
 import sys
+import logging
+from html import escape
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
 import httpx
-import plotly.graph_objects as go
 import streamlit as st
 
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, metric_card, section_header
 from src.dashboard.components.ui_helpers import empty_state, error_card, loading_card_skeleton, responsive_columns
+from src.dashboard.components.fintech_ui import (
+    animated_pnl,
+    donut_chart_svg,
+    holding_row_html,
+    onboarding_tour,
+    toast,
+)
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Portfolio</h1>", unsafe_allow_html=True)
 params = render_page_controls()
 
 from src.dashboard.components.auth_helper import API_BASE
+
+logger = logging.getLogger(__name__)
 
 if not st.session_state.get("auth_token"):
     st.markdown(f"""
@@ -26,6 +36,33 @@ if not st.session_state.get("auth_token"):
     st.stop()
 
 headers = {"Authorization": f"Bearer {st.session_state.auth_token}"}
+
+# --- Onboarding Tour (first-time portfolio users) ---
+onboarding_tour(
+    steps=[
+        {
+            "icon": "📊",
+            "title": "Welcome to your Portfolio",
+            "description": "Track all your holdings in one place. Add stocks, see live P&L, and monitor allocation."
+        },
+        {
+            "icon": "➕",
+            "title": "Add Your Holdings",
+            "description": "Click 'Add New Holding' below to add stocks. Enter the ticker (e.g., AAPL), number of shares, and your average cost."
+        },
+        {
+            "icon": "🎯",
+            "title": "Track Performance",
+            "description": "See real-time profit/loss with color-coded indicators, sparkline charts, and allocation breakdowns."
+        },
+        {
+            "icon": "⌨️",
+            "title": "Pro Tips",
+            "description": "Use Ctrl+K to quickly search tickers. Press '?' anytime to see all keyboard shortcuts."
+        },
+    ],
+    key="portfolio_onboarding_complete",
+)
 
 # --- Add Holding Form ---
 with st.expander("Add New Holding", expanded=False):
@@ -47,12 +84,12 @@ with st.expander("Add New Holding", expanded=False):
                     timeout=10,
                 )
                 if r.status_code == 200:
-                    st.success(f"Added {new_ticker.upper()}")
+                    toast(f"Added {new_ticker.upper()} to portfolio", type="success")
                     st.rerun()
                 else:
-                    st.error(f"Failed: {r.text}")
+                    toast(f"Failed to add: {r.text}", type="error")
             else:
-                st.warning("Enter a ticker symbol")
+                toast("Enter a ticker symbol", type="warning")
 
 # --- Load Portfolio ---
 _portfolio_placeholder = st.empty()
@@ -76,83 +113,132 @@ if not holdings:
     empty_state("📂", "Your portfolio is empty", "Add holdings above to get started!")
     st.stop()
 
-# --- Summary Cards ---
+# --- Summary Cards with animated P&L ---
 st.markdown(section_header("Summary"), unsafe_allow_html=True)
 
-pnl_color = "green" if summary["total_pnl"] >= 0 else "red"
 cols = responsive_columns(4)
 with cols[0]:
     st.markdown(metric_card("Total Value", f"${summary['total_value']:,.2f}"), unsafe_allow_html=True)
 with cols[1]:
     st.markdown(metric_card("Total Cost", f"${summary['total_cost']:,.2f}"), unsafe_allow_html=True)
 with cols[2]:
-    st.markdown(metric_card("Total P&L", f"${summary['total_pnl']:,.2f}", f"{summary['total_pnl_pct']:+.1f}%", pnl_color), unsafe_allow_html=True)
+    pnl_html = animated_pnl(summary["total_pnl"], summary["total_pnl_pct"], size="large")
+    st.markdown(f"""
+    <div style="
+        background: {COLORS['bg_card']};
+        border: 1px solid {COLORS['border']};
+        border-radius: 12px;
+        padding: 20px 24px;
+    ">
+        <div style="color:{COLORS['text_secondary']}; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Total P&L</div>
+        {pnl_html}
+    </div>
+    """, unsafe_allow_html=True)
 with cols[3]:
     st.markdown(metric_card("Holdings", str(summary["holdings_count"])), unsafe_allow_html=True)
 
 st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
-# --- Holdings Table and Chart ---
+# --- Fetch sparkline data for each holding ---
+# Get 7-day price history for sparklines
+sparkline_data: dict[str, list[float]] = {}
+tickers_to_fetch = list({h["ticker"] for h in holdings})
+
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_sparkline_prices(ticker: str, auth_token: str) -> list[float]:
+    from datetime import date, timedelta
+
+    try:
+        spark_r = httpx.get(
+            f"{API_BASE}/stocks/{ticker}/history",
+            params={"start": (date.today() - timedelta(days=7)).isoformat(), "interval": "1d"},
+            headers={"Authorization": f"Bearer {auth_token}"},
+            timeout=5,
+        )
+        spark_r.raise_for_status()
+    except (httpx.HTTPError, ValueError) as e:
+        logger.warning("Failed to load sparkline data for %s: %s", ticker, e)
+        return []
+
+    try:
+        data = spark_r.json()
+    except ValueError as e:
+        logger.warning("Failed to parse sparkline data for %s: %s", ticker, e)
+        return []
+    records = data if isinstance(data, list) else data.get("data", [])
+    return [float(r["close"]) for r in records if isinstance(r, dict) and isinstance(r.get("close"), (int, float))]
+
+
+for ticker in tickers_to_fetch[:10]:  # Limit to prevent too many requests
+    prices = fetch_sparkline_prices(ticker, st.session_state.auth_token)
+    if prices:
+        sparkline_data[ticker] = prices
+
+# --- Holdings Table with Sparklines and Chart ---
 col_table, col_chart = st.columns([3, 2])
 
 with col_table:
     st.markdown(section_header("Holdings"), unsafe_allow_html=True)
     for h in holdings:
-        pnl_color_h = COLORS["green"] if h["pnl"] >= 0 else COLORS["red"]
-        st.markdown(f"""
-        <div style="
-            display:flex; align-items:center; justify-content:space-between;
-            background:{COLORS['bg_card']}; border:1px solid {COLORS['border']};
-            border-radius:10px; padding:16px 20px; margin-bottom:8px;
-        ">
-            <div>
-                <div style="color:{COLORS['text_primary']}; font-weight:700; font-size:1.05rem;">{h['ticker']}</div>
-                <div style="color:{COLORS['text_muted']}; font-size:0.8rem;">{h['shares']} shares @ ${h['avg_cost']:.2f}</div>
-            </div>
-            <div style="display:flex; align-items:center; gap:24px;">
-                <div style="text-align:right;">
-                    <div style="color:{COLORS['text_primary']}; font-weight:600;">${h['current_price']:,.2f}</div>
-                    <div style="color:{COLORS['text_muted']}; font-size:0.75rem;">Current</div>
-                </div>
-                <div style="text-align:right;">
-                    <div style="color:{COLORS['text_primary']}; font-weight:600;">${h['market_value']:,.2f}</div>
-                    <div style="color:{COLORS['text_muted']}; font-size:0.75rem;">Value</div>
-                </div>
-                <div style="text-align:right;">
-                    <div style="color:{pnl_color_h}; font-weight:700;">${h['pnl']:+,.2f}</div>
-                    <div style="color:{pnl_color_h}; font-size:0.75rem;">{h['pnl_pct']:+.1f}%</div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        spark_prices = sparkline_data.get(h["ticker"], [])
+        st.markdown(
+            holding_row_html(
+                ticker=h["ticker"],
+                shares=h["shares"],
+                avg_cost=h["avg_cost"],
+                current_price=h["current_price"],
+                market_value=h["market_value"],
+                pnl=h["pnl"],
+                pnl_pct=h["pnl_pct"],
+                sparkline_prices=spark_prices,
+            ),
+            unsafe_allow_html=True,
+        )
 
-        # Delete button (separate so it doesn't break the HTML card)
+        # Delete button
         if st.button(f"Remove {h['ticker']}", key=f"del_{h['id']}", type="secondary"):
-            httpx.delete(f"{API_BASE}/portfolio/holdings/{h['id']}", headers=headers, timeout=10)
-            st.rerun()
+            try:
+                del_r = httpx.delete(f"{API_BASE}/portfolio/holdings/{h['id']}", headers=headers, timeout=10)
+                if del_r.status_code == 200:
+                    toast(f"Removed {h['ticker']} from portfolio", type="info")
+                    st.rerun()
+                else:
+                    toast(f"Failed to remove {h['ticker']}: {del_r.text}", type="error")
+            except httpx.HTTPError as e:
+                toast(f"Failed to remove {h['ticker']}: {e}", type="error")
 
 with col_chart:
     st.markdown(section_header("Allocation"), unsafe_allow_html=True)
     labels = [h["ticker"] for h in holdings]
     values = [h["market_value"] for h in holdings]
 
-    chart_colors = [COLORS["accent"], COLORS["blue"], COLORS["yellow"], COLORS["red"],
-                    COLORS["purple"], "#26c6da", "#ff8a65", "#a5d6a7"]
-
-    fig = go.Figure(data=[go.Pie(
+    # SVG donut chart
+    donut_html = donut_chart_svg(
         labels=labels,
         values=values,
-        hole=0.5,
-        textinfo="label+percent",
-        textfont=dict(color=COLORS["text_primary"], size=12),
-        marker=dict(colors=chart_colors[:len(labels)]),
-    )])
-    fig.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        height=400,
-        margin=dict(t=20, b=20, l=20, r=20),
-        showlegend=False,
-        font=dict(color=COLORS["text_secondary"]),
+        size=260,
+        center_value=f"${summary['total_value']:,.0f}",
+        center_label="TOTAL VALUE",
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.markdown(donut_html, unsafe_allow_html=True)
+
+    # Concentration warning
+    if values:
+        max_pct = max(values) / sum(values) * 100
+        if max_pct > 50:
+            max_ticker = labels[values.index(max(values))]
+            safe_max_ticker = escape(str(max_ticker))
+            st.markdown(f"""
+            <div style="
+                background:{COLORS['yellow_soft']};
+                border: 1px solid {COLORS['yellow']}40;
+                border-left: 4px solid {COLORS['yellow']};
+                border-radius: 8px;
+                padding: 10px 14px;
+                margin-top: 16px;
+            ">
+                <span style="color:{COLORS['yellow']}; font-size:0.85rem;">
+                    ⚠️ {safe_max_ticker} is {max_pct:.0f}% of your portfolio — consider diversifying.
+                </span>
+            </div>
+            """, unsafe_allow_html=True)

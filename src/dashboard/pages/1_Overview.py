@@ -9,6 +9,7 @@ from src.dashboard.components.charts import candlestick_chart
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, metric_card, section_header
 from src.dashboard.components.ui_helpers import error_card, loading_card_skeleton, responsive_columns
+from src.dashboard.components.fintech_ui import onboarding_tour
 
 # Page header + inline controls
 st.markdown(f"""
@@ -19,6 +20,33 @@ st.markdown(f"""
 params = render_page_controls(show_ticker=True, show_dates=True)
 
 from src.dashboard.components.auth_helper import API_BASE
+
+# --- First-time onboarding ---
+onboarding_tour(
+    steps=[
+        {
+            "icon": "📈",
+            "title": "Welcome to StockForecaster",
+            "description": "Your personal portfolio growth coach. Get AI-powered signals, forecasts, and actionable insights for any stock."
+        },
+        {
+            "icon": "🔍",
+            "title": "Search Any Stock",
+            "description": "Type a ticker symbol above (e.g., AAPL, RELIANCE.NS, TSLA) to see live price data, charts, and key metrics."
+        },
+        {
+            "icon": "🤖",
+            "title": "AI-Powered Analysis",
+            "description": "Use the Forecast and Signals pages to get ML predictions and buy/sell/hold signals with reasoning."
+        },
+        {
+            "icon": "💼",
+            "title": "Build Your Portfolio",
+            "description": "Create an account and add your holdings to get personalized daily briefings, alerts, and AI coaching."
+        },
+    ],
+    key="overview_onboarding_complete",
+)
 
 
 @st.cache_data(ttl=300)

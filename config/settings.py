@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_hours: int = 168  # 7 days
 
+    cors_origins: str = ""  # Comma-separated origins for production (empty = dev defaults)
+
     llm_provider: str = "gemini"
     llm_api_key: str = ""
 
