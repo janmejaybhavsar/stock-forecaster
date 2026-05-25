@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.dependencies import get_data_provider
 from src.api.schemas import SearchResult, StockInfo
+from src.auth.ticker_validator import sanitize_ticker
 from src.data_layer.base_provider import DataProvider
 
 router = APIRouter(tags=["stocks"])
@@ -27,6 +28,11 @@ def get_history(
     page_size: int = Query(default=0, ge=0, le=2000, description="Records per page (0 = all)"),
     provider: DataProvider = Depends(get_data_provider),
 ):
+    try:
+        ticker = sanitize_ticker(ticker)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
     if end is None:
         end = date.today()
     if start is None:
@@ -71,6 +77,10 @@ def get_stock_info(
     ticker: str,
     provider: DataProvider = Depends(get_data_provider),
 ):
+    try:
+        ticker = sanitize_ticker(ticker)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     try:
         return provider.get_info(ticker)
     except Exception as e:
