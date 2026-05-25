@@ -8,6 +8,7 @@ import streamlit as st
 from src.dashboard.components.charts import candlestick_chart
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, metric_card, section_header
+from src.dashboard.components.ui_helpers import error_card
 
 # Page header + inline controls
 st.markdown(f"""
@@ -71,7 +72,7 @@ try:
         st.markdown(metric_card("Volume", vol_str), unsafe_allow_html=True)
 
 except Exception as e:
-    st.warning(f"Could not load stock info: {e}")
+    error_card("Stock Info Unavailable", str(e), "Check that the API server is running and the ticker is valid.")
 
 st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
@@ -117,5 +118,4 @@ try:
     else:
         st.info("No data available for the selected range.")
 except Exception as e:
-    st.error(f"Error loading data: {e}")
-    st.caption("Make sure the API server is running on port 8000")
+    error_card("Chart Data Error", str(e), "Make sure the API server is running and try a different date range.")

@@ -8,6 +8,7 @@ import streamlit as st
 
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, metric_card, section_header, notification_card
+from src.dashboard.components.ui_helpers import empty_state, error_card
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Daily Briefing</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_horizon=True)
@@ -73,11 +74,7 @@ def load_portfolio(_headers_tuple):
 portfolio = load_portfolio(("Authorization", f"Bearer {st.session_state.auth_token}"))
 
 if not portfolio or not portfolio.get("holdings"):
-    st.markdown(f"""
-    <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:32px; text-align:center;">
-        <p style="color:{COLORS['text_secondary']}; font-size:1.1rem;">Your portfolio is empty. Add holdings to get a personalized briefing!</p>
-    </div>
-    """, unsafe_allow_html=True)
+    empty_state("📂", "Your portfolio is empty", "Add holdings to get a personalized briefing!")
     st.page_link("pages/6_Portfolio.py", label="Go to Portfolio", icon="\U0001f4bc")
     st.stop()
 
@@ -192,7 +189,7 @@ if st.button("Refresh Signals", type="primary"):
         r.raise_for_status()
         st.session_state["_briefing_signals"] = r.json().get("signals", [])
     except Exception as e:
-        st.error(f"Failed to load signals: {e}")
+        error_card("Signal Refresh Failed", str(e), "Ensure the API is running and try again.")
 
 if "_briefing_signals" in st.session_state:
     sigs = st.session_state["_briefing_signals"]

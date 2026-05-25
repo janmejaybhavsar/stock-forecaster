@@ -9,6 +9,7 @@ import streamlit as st
 
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, metric_card, section_header
+from src.dashboard.components.ui_helpers import empty_state, error_card
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Portfolio</h1>", unsafe_allow_html=True)
 params = render_page_controls()
@@ -59,20 +60,14 @@ try:
     r.raise_for_status()
     portfolio = r.json()
 except Exception as e:
-    st.error(f"Failed to load portfolio: {e}")
+    error_card("Portfolio Load Failed", str(e), "Check that the API server is running and you're logged in.")
     st.stop()
 
 holdings = portfolio["holdings"]
 summary = portfolio["summary"]
 
 if not holdings:
-    st.markdown(f"""
-    <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:48px; text-align:center;">
-        <div style="font-size:2.5rem; margin-bottom:12px;">📂</div>
-        <p style="color:{COLORS['text_secondary']}; font-size:1.1rem;">Your portfolio is empty</p>
-        <p style="color:{COLORS['text_muted']}; font-size:0.85rem;">Add holdings above to get started!</p>
-    </div>
-    """, unsafe_allow_html=True)
+    empty_state("📂", "Your portfolio is empty", "Add holdings above to get started!")
     st.stop()
 
 # --- Summary Cards ---

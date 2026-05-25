@@ -9,6 +9,7 @@ import streamlit as st
 
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, section_header, metric_card
+from src.dashboard.components.ui_helpers import error_card
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Signals</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True, show_horizon=True)
@@ -42,7 +43,7 @@ if run_signal:
             signal_data = r.json()
             st.session_state["_signal_result"] = signal_data
         except Exception as e:
-            st.error(f"Signal analysis failed: {e}")
+            error_card("Signal Analysis Failed", str(e), "This may be caused by missing dependencies or API issues. Try again.")
             st.stop()
 
 # Display stored result
@@ -211,7 +212,7 @@ if st.session_state.get("auth_token"):
                 r.raise_for_status()
                 st.session_state["_portfolio_signals"] = r.json()
             except Exception as e:
-                st.error(f"Portfolio scan failed: {e}")
+                error_card("Portfolio Scan Failed", str(e), "This scans all holdings — ensure you have a stable connection.")
 
     if "_portfolio_signals" in st.session_state:
         port_data = st.session_state["_portfolio_signals"]

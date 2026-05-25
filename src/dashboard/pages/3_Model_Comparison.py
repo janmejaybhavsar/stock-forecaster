@@ -10,6 +10,7 @@ import streamlit as st
 
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, section_header
+from src.dashboard.components.ui_helpers import empty_state, error_card
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Compare Models</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True, show_dates=True, show_horizon=True)
@@ -115,7 +116,7 @@ if "comparison_results" in st.session_state:
         )
         st.plotly_chart(fig, use_container_width=True)
     except Exception as e:
-        st.error(f"Error: {e}")
+        error_card("Chart Error", str(e), "Check that the API server is running.")
 
     st.markdown(section_header("Prediction Details"), unsafe_allow_html=True)
     import pandas as pd
@@ -125,9 +126,4 @@ if "comparison_results" in st.session_state:
         with tab:
             st.dataframe(pd.DataFrame(result["predictions"]), use_container_width=True)
 else:
-    st.markdown(f"""
-    <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:48px; text-align:center;">
-        <div style="font-size:2.5rem; margin-bottom:12px;">🔬</div>
-        <p style="color:{COLORS['text_secondary']}; font-size:1.1rem; margin:0;">Select models above and click 'Compare Models' to see forecasts side by side</p>
-    </div>
-    """, unsafe_allow_html=True)
+    empty_state("🔬", "Select models above and click 'Compare Models'", "Forecasts will be displayed side by side for easy comparison")
