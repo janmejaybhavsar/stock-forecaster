@@ -1,3 +1,6 @@
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -5,6 +8,7 @@ from src.api.dependencies import get_current_user, get_data_provider
 from src.database.repositories import HoldingsRepository
 
 router = APIRouter(tags=["portfolio"])
+logger = logging.getLogger(__name__)
 _repo = HoldingsRepository()
 
 
@@ -24,22 +28,38 @@ def add_holding(req: HoldingCreate, user: dict = Depends(get_current_user)):
     return _repo.add(user["id"], req.ticker, req.shares, req.avg_cost)
 
 
+def _fetch_single_info(provider, ticker: str) -> tuple[str, dict]:
+    """Fetch info for a single ticker — called in parallel."""
+    try:
+        info = provider.get_info(ticker)
+        return ticker, {"current_price": info.get("current_price", 0), "currency": info.get("currency", "USD")}
+    except Exception as e:
+        logger.warning(f"Failed to fetch info for {ticker}: {e}")
+        return ticker, {"current_price": 0, "currency": "USD"}
+
+
 def _enrich_holdings(holdings: list[dict]) -> tuple[list[dict], dict]:
-    """Enrich holdings with live prices and compute summary. Reusable by coach."""
+    """Enrich holdings with live prices using parallel fetches, then compute summary."""
     provider = get_data_provider()
+
+    # Fetch all ticker info in parallel (up to 8 concurrent)
+    tickers = list({h["ticker"] for h in holdings})
+    info_map: dict[str, dict] = {}
+
+    with ThreadPoolExecutor(max_workers=min(len(tickers), 8)) as executor:
+        futures = {executor.submit(_fetch_single_info, provider, t): t for t in tickers}
+        for future in as_completed(futures):
+            ticker, info = future.result()
+            info_map[ticker] = info
 
     total_value = 0.0
     total_cost = 0.0
     enriched = []
 
     for h in holdings:
-        try:
-            info = provider.get_info(h["ticker"])
-            current_price = info.get("current_price", 0)
-            currency = info.get("currency", "USD")
-        except Exception:
-            current_price = 0
-            currency = "USD"
+        info = info_map.get(h["ticker"], {"current_price": 0, "currency": "USD"})
+        current_price = info["current_price"]
+        currency = info["currency"]
 
         market_value = current_price * h["shares"]
         cost_basis = h["avg_cost"] * h["shares"]

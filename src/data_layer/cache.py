@@ -1,4 +1,6 @@
 import sqlite3
+import threading
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -6,6 +8,26 @@ import pandas as pd
 
 from config.settings import settings
 from src.data_layer.base_provider import DataProvider
+
+# ── In-memory cache for stock info with TTL ──────────────────────────
+_INFO_CACHE_TTL = 300  # 5 minutes
+_info_cache: dict[str, tuple[float, dict]] = {}
+_info_cache_lock = threading.Lock()
+
+
+def _get_cached_info(ticker: str) -> dict | None:
+    """Return cached info if still valid, else None."""
+    with _info_cache_lock:
+        entry = _info_cache.get(ticker)
+        if entry and (time.time() - entry[0]) < _INFO_CACHE_TTL:
+            return entry[1]
+    return None
+
+
+def _set_cached_info(ticker: str, data: dict) -> None:
+    """Store info in cache with current timestamp."""
+    with _info_cache_lock:
+        _info_cache[ticker] = (time.time(), data)
 
 
 class CachedProvider(DataProvider):
@@ -91,7 +113,13 @@ class CachedProvider(DataProvider):
         return df
 
     def get_info(self, ticker: str) -> dict:
-        return self._provider.get_info(ticker)
+        ticker_upper = ticker.upper()
+        cached = _get_cached_info(ticker_upper)
+        if cached is not None:
+            return cached
+        info = self._provider.get_info(ticker)
+        _set_cached_info(ticker_upper, info)
+        return info
 
     def search(self, query: str) -> list[dict]:
         return self._provider.search(query)
