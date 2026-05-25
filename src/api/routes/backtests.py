@@ -1,12 +1,18 @@
-import uuid
+import logging
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from src.api.schemas import BacktestRequest, BacktestResponse
+from src.database.repositories import BacktestHistoryRepository
+
+_limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(tags=["backtests"])
+logger = logging.getLogger(__name__)
 
-_store: dict[str, BacktestResponse] = {}
+_repo = BacktestHistoryRepository()
 
 
 def _run_backtest(backtest_id: str, req: BacktestRequest) -> None:
@@ -34,31 +40,53 @@ def _run_backtest(backtest_id: str, req: BacktestRequest) -> None:
             step_size=req.step_size,
         )
 
-        _store[backtest_id].metrics = result.metrics
-        _store[backtest_id].predictions = result.predictions
-        _store[backtest_id].equity_curve = result.equity_curve
-        _store[backtest_id].status = "completed"
+        _repo.update_result(
+            backtest_id,
+            metrics=result.metrics,
+            predictions=result.predictions,
+            equity_curve=result.equity_curve,
+            status="completed",
+        )
     except Exception as e:
-        _store[backtest_id].status = "failed"
-        _store[backtest_id].error = str(e)
+        logger.error(f"Backtest {backtest_id} failed: {e}")
+        _repo.update_result(
+            backtest_id,
+            metrics={},
+            predictions=[],
+            equity_curve=[],
+            status="failed",
+            error=str(e),
+        )
 
 
 @router.post("/run", response_model=BacktestResponse)
-def run_backtest(req: BacktestRequest, bg: BackgroundTasks):
-    backtest_id = str(uuid.uuid4())[:8]
-    _store[backtest_id] = BacktestResponse(
-        id=backtest_id,
+@_limiter.limit("5/minute")
+def run_backtest(request: Request, req: BacktestRequest, bg: BackgroundTasks):
+    record = _repo.create(
+        ticker=req.ticker.upper().strip(),
+        model_name=req.model_name,
+    )
+    bg.add_task(_run_backtest, record["id"], req)
+    return BacktestResponse(
+        id=record["id"],
         status="running",
         ticker=req.ticker,
         model_name=req.model_name,
     )
-    bg.add_task(_run_backtest, backtest_id, req)
-    return _store[backtest_id]
 
 
 @router.get("/{backtest_id}", response_model=BacktestResponse)
 def get_backtest(backtest_id: str):
-    if backtest_id not in _store:
-        from fastapi import HTTPException
+    record = _repo.get_by_id(backtest_id)
+    if not record:
         raise HTTPException(404, "Backtest not found")
-    return _store[backtest_id]
+    return BacktestResponse(
+        id=record["id"],
+        status=record["status"],
+        ticker=record["ticker"],
+        model_name=record["model_name"],
+        metrics=record.get("metrics", {}),
+        predictions=record.get("predictions", []),
+        equity_curve=record.get("equity_curve", []),
+        error=record.get("error"),
+    )

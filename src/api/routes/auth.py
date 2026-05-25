@@ -15,8 +15,10 @@ def register(req: UserCreate):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Email already registered")
     if _users.get_by_username(req.username):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Username already taken")
-    if len(req.password) < 6:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password must be at least 6 characters")
+    if len(req.password) < 8:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password must be at least 8 characters")
+    if req.password.isdigit() or req.password.isalpha():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password must contain both letters and numbers")
 
     pw_hash = hash_password(req.password)
     user = _users.create(req.email, req.username, pw_hash)

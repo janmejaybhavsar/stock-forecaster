@@ -1,12 +1,18 @@
-import uuid
+import logging
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from src.api.schemas import ForecastRequest, ForecastResponse
+from src.database.repositories import ForecastHistoryRepository
+
+_limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(tags=["forecasts"])
+logger = logging.getLogger(__name__)
 
-_store: dict[str, ForecastResponse] = {}
+_repo = ForecastHistoryRepository()
 
 
 def _run_forecast(forecast_id: str, req: ForecastRequest) -> None:
@@ -38,30 +44,41 @@ def _run_forecast(forecast_id: str, req: ForecastRequest) -> None:
                 "upper_bound": round(row["upper_bound"], 2),
             })
 
-        _store[forecast_id].predictions = pred_records
-        _store[forecast_id].status = "completed"
+        _repo.update_result(forecast_id, predictions=pred_records, status="completed")
     except Exception as e:
-        _store[forecast_id].status = "failed"
-        _store[forecast_id].error = str(e)
+        logger.error(f"Forecast {forecast_id} failed: {e}")
+        _repo.update_result(forecast_id, predictions=[], status="failed", error=str(e))
 
 
 @router.post("/run", response_model=ForecastResponse)
-def run_forecast(req: ForecastRequest, bg: BackgroundTasks):
-    forecast_id = str(uuid.uuid4())[:8]
-    _store[forecast_id] = ForecastResponse(
-        id=forecast_id,
+@_limiter.limit("10/minute")
+def run_forecast(request: Request, req: ForecastRequest, bg: BackgroundTasks):
+    record = _repo.create(
+        ticker=req.ticker.upper().strip(),
+        model_name=req.model_name,
+        horizon=req.horizon,
+    )
+    bg.add_task(_run_forecast, record["id"], req)
+    return ForecastResponse(
+        id=record["id"],
         status="running",
         ticker=req.ticker,
         model_name=req.model_name,
         horizon=req.horizon,
     )
-    bg.add_task(_run_forecast, forecast_id, req)
-    return _store[forecast_id]
 
 
 @router.get("/{forecast_id}", response_model=ForecastResponse)
 def get_forecast(forecast_id: str):
-    if forecast_id not in _store:
-        from fastapi import HTTPException
+    record = _repo.get_by_id(forecast_id)
+    if not record:
         raise HTTPException(404, "Forecast not found")
-    return _store[forecast_id]
+    return ForecastResponse(
+        id=record["id"],
+        status=record["status"],
+        ticker=record["ticker"],
+        model_name=record["model_name"],
+        horizon=record["horizon"],
+        predictions=record.get("predictions", []),
+        error=record.get("error"),
+    )

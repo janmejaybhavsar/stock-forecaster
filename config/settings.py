@@ -1,7 +1,25 @@
+import os
 import secrets
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
+
+
+def _stable_jwt_secret() -> str:
+    """Return a persistent JWT secret: env var > .env file > generate and persist."""
+    if os.environ.get("JWT_SECRET"):
+        return os.environ["JWT_SECRET"]
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            if line.startswith("JWT_SECRET="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    # Generate and persist so it survives restarts
+    secret = secrets.token_urlsafe(32)
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(env_path, "a") as f:
+        f.write(f"\nJWT_SECRET={secret}\n")
+    return secret
 
 
 class Settings(BaseSettings):
@@ -12,7 +30,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
     streamlit_port: int = 8501
 
-    jwt_secret: str = secrets.token_urlsafe(32)
+    jwt_secret: str = _stable_jwt_secret()
     jwt_algorithm: str = "HS256"
     jwt_expire_hours: int = 168  # 7 days
 
