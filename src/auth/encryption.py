@@ -1,6 +1,6 @@
 """
 Fernet symmetric encryption for sensitive data (API keys).
-Uses the JWT secret as the base key material, derived via HKDF.
+Uses the JWT secret as the base key material, derived via SHA-256.
 """
 
 import base64
@@ -35,5 +35,5 @@ def decrypt_value(ciphertext: str) -> str:
     f = _get_fernet()
     try:
         return f.decrypt(ciphertext.encode()).decode()
-    except (InvalidToken, Exception):
+    except (InvalidToken, ValueError):
         return ""

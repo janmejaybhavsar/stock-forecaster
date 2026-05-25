@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -36,6 +37,19 @@ def _get_cors_origins() -> list[str]:
     return _DEFAULT_ORIGINS
 
 
+def _build_cors_config() -> tuple[list[str], str | None]:
+    origins = _get_cors_origins()
+    explicit_origins: list[str] = []
+    wildcard_patterns: list[str] = []
+    for origin in origins:
+        if "*" in origin:
+            wildcard_patterns.append(re.escape(origin).replace(r"\*", ".*"))
+        else:
+            explicit_origins.append(origin)
+    origin_regex = "|".join(f"^{pattern}$" for pattern in wildcard_patterns) if wildcard_patterns else None
+    return explicit_origins, origin_regex
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -43,6 +57,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    cors_origins, cors_origin_regex = _build_cors_config()
     app = FastAPI(
         title="Stock Forecaster API",
         version="2.0.0",
@@ -56,7 +71,8 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=_get_cors_origins(),
+        allow_origins=cors_origins,
+        allow_origin_regex=cors_origin_regex,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "Accept"],

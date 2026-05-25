@@ -286,10 +286,15 @@ class UserSettingsRepository:
         if row:
             data = dict(row)
             # Never return the encrypted key to the frontend
-            if data.get("llm_api_key"):
-                data["llm_api_key"] = ""
+            data["llm_api_key_configured"] = bool(data.get("llm_api_key"))
+            data["llm_api_key"] = ""
             return data
-        return {"user_id": user_id, "llm_provider": "gemini", "llm_api_key": ""}
+        return {
+            "user_id": user_id,
+            "llm_provider": "gemini",
+            "llm_api_key": "",
+            "llm_api_key_configured": False,
+        }
 
     def get_decrypted_key(self, user_id: str) -> str:
         """Retrieve and decrypt the stored API key (for server-side use only)."""
@@ -305,7 +310,14 @@ class UserSettingsRepository:
 
         db = get_db()
         # Encrypt the API key before storing
-        stored_api_key = encrypt_value(llm_api_key) if llm_api_key else ""
+        existing = db.execute(
+            "SELECT llm_api_key FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        if llm_api_key:
+            stored_api_key = encrypt_value(llm_api_key)
+        else:
+            stored_api_key = existing["llm_api_key"] if existing else ""
         db.execute(
             """INSERT INTO user_settings (user_id, llm_provider, llm_api_key, updated_at)
                VALUES (?, ?, ?, ?)

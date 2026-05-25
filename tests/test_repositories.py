@@ -127,7 +127,8 @@ class TestUserSettingsRepository:
             (sample_user["id"],),
         ).fetchone()
         assert row is not None
-        assert row["llm_api_key"] == "__configured__"
+        assert row["llm_api_key"] != ""
+        assert row["llm_api_key"] != "secret-key-123"
 
     def test_get_does_not_return_saved_api_key(self, patched_db, sample_user):
         from src.database.repositories import UserSettingsRepository
@@ -138,3 +139,22 @@ class TestUserSettingsRepository:
         settings = repo.get(sample_user["id"])
         assert settings["llm_provider"] == "gemini"
         assert settings["llm_api_key"] == ""
+        assert settings["llm_api_key_configured"] is True
+
+    def test_save_preserves_existing_key_when_blank(self, patched_db, sample_user):
+        from src.database.repositories import UserSettingsRepository
+
+        repo = UserSettingsRepository()
+        repo.save(sample_user["id"], "gemini", "secret-key-123")
+        before = patched_db.execute(
+            "SELECT llm_api_key FROM user_settings WHERE user_id = ?",
+            (sample_user["id"],),
+        ).fetchone()["llm_api_key"]
+
+        repo.save(sample_user["id"], "openai", "")
+        after = patched_db.execute(
+            "SELECT llm_api_key FROM user_settings WHERE user_id = ?",
+            (sample_user["id"],),
+        ).fetchone()["llm_api_key"]
+
+        assert after == before

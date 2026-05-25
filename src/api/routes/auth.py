@@ -1,29 +1,14 @@
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from src.auth.audit import log_event
+from src.auth.revocation import revoke_token
 from src.auth.schemas import Token, UserCreate, UserLogin, UserResponse
-from src.auth.security import create_access_token, hash_password, verify_password
+from src.auth.security import create_access_token, decode_token, hash_password, verify_password
 from src.api.dependencies import get_current_user
 from src.database.repositories import UserRepository
 
 router = APIRouter(tags=["auth"])
-logger = logging.getLogger(__name__)
 _users = UserRepository()
-
-# In-memory set of revoked tokens (jti claims). In production, use Redis.
-_revoked_tokens: set[str] = set()
-
-
-def is_token_revoked(jti: str) -> bool:
-    """Check if a token has been revoked."""
-    return jti in _revoked_tokens
-
-
-def revoke_token(jti: str) -> None:
-    """Revoke a token by its jti."""
-    _revoked_tokens.add(jti)
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
@@ -71,10 +56,9 @@ def logout(request: Request, user: dict = Depends(get_current_user)):
     auth_header = request.headers.get("authorization", "")
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
-        from src.auth.security import decode_token
         payload = decode_token(token)
         if payload and "jti" in payload:
-            revoke_token(payload["jti"])
+            revoke_token(payload["jti"], payload.get("exp"))
 
     log_event("logout", user_id=user["id"], ip_address=ip, detail="Session revoked")
     return {"status": "logged_out"}

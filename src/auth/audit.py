@@ -4,32 +4,43 @@ Logs to both Python logger and a dedicated SQLite table.
 """
 
 import logging
+import threading
 from datetime import datetime
 
 from src.database.connection import get_db
 
 logger = logging.getLogger("audit")
 logger.setLevel(logging.INFO)
+_init_lock = threading.Lock()
+_initialized_db_id: int | None = None
 
 
 def _ensure_table():
     """Create audit_log table if not exists."""
+    global _initialized_db_id
     db = get_db()
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS audit_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL DEFAULT (datetime('now')),
-            event_type TEXT NOT NULL,
-            user_id TEXT,
-            email TEXT,
-            ip_address TEXT,
-            detail TEXT,
-            success INTEGER NOT NULL DEFAULT 1
-        )
-    """)
-    db.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id, timestamp DESC)")
-    db.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_event ON audit_log(event_type, timestamp DESC)")
-    db.commit()
+    db_id = id(db)
+    if _initialized_db_id == db_id:
+        return
+    with _init_lock:
+        if _initialized_db_id == db_id:
+            return
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+                event_type TEXT NOT NULL,
+                user_id TEXT,
+                email TEXT,
+                ip_address TEXT,
+                detail TEXT,
+                success INTEGER NOT NULL DEFAULT 1
+            )
+        """)
+        db.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id, timestamp DESC)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_event ON audit_log(event_type, timestamp DESC)")
+        db.commit()
+        _initialized_db_id = db_id
 
 
 def log_event(

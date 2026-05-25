@@ -46,9 +46,8 @@ VALID_SUFFIXES = {
     ".CR",    # Crypto (via yfinance)
 }
 
-# Ticker format: 1-10 alphanumeric chars (may include hyphens/dots for special tickers),
-# optionally followed by a dot and a 1-3 char exchange suffix
-_TICKER_PATTERN = re.compile(r"^[A-Z0-9\-\.]{1,10}(\.[A-Z]{1,3})?$", re.IGNORECASE)
+# Ticker format aligned with API schemas: letters, numbers, dot, hyphen, caret.
+_TICKER_PATTERN = re.compile(r"^[A-Z0-9\.\-\^]{1,20}$", re.IGNORECASE)
 
 
 def validate_ticker(ticker: str) -> tuple[bool, str]:
@@ -63,24 +62,22 @@ def validate_ticker(ticker: str) -> tuple[bool, str]:
 
     ticker = ticker.strip().upper()
 
-    if len(ticker) > 15:
-        return False, "Ticker too long (max 15 characters)"
+    if len(ticker) > 20:
+        return False, "Ticker too long (max 20 characters)"
 
     if not _TICKER_PATTERN.match(ticker):
         return False, "Invalid ticker format — must be alphanumeric with optional exchange suffix"
 
-    # Check exchange suffix
+    # Check exchange suffix only when it's a known suffix; otherwise keep dot(s) in base symbol
+    base = ticker
     if "." in ticker:
-        # Find the last dot to get the suffix
         last_dot = ticker.rfind(".")
-        suffix = ticker[last_dot:]
-        base = ticker[:last_dot]
-        if suffix.upper() not in VALID_SUFFIXES:
-            return False, f"Unknown exchange suffix '{suffix}'"
-        if not base:
+        suffix_candidate = ticker[last_dot:]
+        base_candidate = ticker[:last_dot]
+        if not base_candidate:
             return False, "Ticker base cannot be empty"
-    else:
-        base = ticker
+        if suffix_candidate.upper() in VALID_SUFFIXES:
+            base = base_candidate
 
     # Base symbol sanity check (at least 1 alpha char)
     if not any(c.isalpha() for c in base):

@@ -7,7 +7,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from src.api.schemas import ForecastRequest, ForecastResponse
-from src.auth.ticker_validator import validate_ticker
+from src.auth.ticker_validator import sanitize_ticker
 from src.database.repositories import ForecastHistoryRepository
 
 _limiter = Limiter(key_func=get_remote_address)
@@ -56,11 +56,12 @@ def _run_forecast(forecast_id: str, req: ForecastRequest) -> None:
 @router.post("/run", response_model=ForecastResponse)
 @_limiter.limit("10/minute")
 def run_forecast(request: Request, req: ForecastRequest, bg: BackgroundTasks):
-    is_valid, error = validate_ticker(req.ticker)
-    if not is_valid:
-        raise HTTPException(400, error)
+    try:
+        normalized_ticker = sanitize_ticker(req.ticker)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     record = _repo.create(
-        ticker=req.ticker.upper().strip(),
+        ticker=normalized_ticker,
         model_name=req.model_name,
         horizon=req.horizon,
     )
@@ -139,11 +140,15 @@ def _run_single_model(ticker: str, model_name: str, horizon: int) -> dict:
 @_limiter.limit("3/minute")
 def compare_models(request: Request, req: CompareRequest):
     """Run multiple models in parallel and return all results at once."""
+    try:
+        normalized_ticker = sanitize_ticker(req.ticker)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     results = {}
 
     with ThreadPoolExecutor(max_workers=min(len(req.models), 4)) as executor:
         futures = {
-            executor.submit(_run_single_model, req.ticker.upper().strip(), m, req.horizon): m
+            executor.submit(_run_single_model, normalized_ticker, m, req.horizon): m
             for m in req.models
         }
         for future in as_completed(futures):
@@ -151,7 +156,7 @@ def compare_models(request: Request, req: CompareRequest):
             results[model_name] = future.result()
 
     return {
-        "ticker": req.ticker.upper().strip(),
+        "ticker": normalized_ticker,
         "horizon": req.horizon,
         "results": results,
     }

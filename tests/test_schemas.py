@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.api.schemas import BacktestRequest, ForecastRequest
+from src.auth.ticker_validator import sanitize_ticker, validate_ticker
 
 
 class TestForecastRequest:
@@ -101,3 +102,13 @@ class TestBacktestRequest:
         assert req.train_window == 252
         assert req.test_window == 21
         assert req.step_size == 21
+
+
+class TestTickerValidator:
+    def test_accepts_caret_index_symbol(self):
+        is_valid, error = validate_ticker("^GSPC")
+        assert is_valid is True
+        assert error == ""
+
+    def test_allows_dot_in_base_symbol(self):
+        assert sanitize_ticker("brk.b") == "BRK.B"
