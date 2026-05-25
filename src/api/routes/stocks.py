@@ -36,6 +36,13 @@ def get_history(
     if df.empty:
         raise HTTPException(404, f"No data found for {ticker}")
 
+    total = len(df)
+
+    if page_size > 0:
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        df = df.iloc[start_idx:end_idx]
+
     records = []
     for idx, row in df.iterrows():
         records.append({
@@ -47,13 +54,7 @@ def get_history(
             "volume": int(row["Volume"]),
         })
 
-    total = len(records)
-
-    # Paginate if page_size > 0
     if page_size > 0:
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        records = records[start_idx:end_idx]
         return {
             "data": records,
             "total": total,
