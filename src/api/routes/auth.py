@@ -24,7 +24,7 @@ def register(req: UserCreate, request: Request):
     if len(req.password) < 8:
         log_event("register", email=req.email, ip_address=ip, detail="Password too short", success=False)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password must be at least 8 characters")
-    if req.password.isdigit() or req.password.isalpha():
+    if not (any(c.isdigit() for c in req.password) and any(c.isalpha() for c in req.password)):
         log_event("register", email=req.email, ip_address=ip, detail="Password too simple", success=False)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password must contain both letters and numbers")
 
