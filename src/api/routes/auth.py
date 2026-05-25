@@ -17,7 +17,7 @@ def register(req: UserCreate):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Username already taken")
     if len(req.password) < 8:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password must be at least 8 characters")
-    if req.password.isdigit() or req.password.isalpha():
+    if not any(char.isalpha() for char in req.password) or not any(char.isdigit() for char in req.password):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password must contain both letters and numbers")
 
     pw_hash = hash_password(req.password)

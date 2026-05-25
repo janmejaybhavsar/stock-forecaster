@@ -1,13 +1,10 @@
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
+from src.api.limiter import limiter
 from src.api.schemas import ForecastRequest, ForecastResponse
 from src.database.repositories import ForecastHistoryRepository
-
-_limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(tags=["forecasts"])
 logger = logging.getLogger(__name__)
@@ -51,7 +48,7 @@ def _run_forecast(forecast_id: str, req: ForecastRequest) -> None:
 
 
 @router.post("/run", response_model=ForecastResponse)
-@_limiter.limit("10/minute")
+@limiter.limit("10/minute")
 def run_forecast(request: Request, req: ForecastRequest, bg: BackgroundTasks):
     record = _repo.create(
         ticker=req.ticker.upper().strip(),

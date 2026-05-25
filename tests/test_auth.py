@@ -90,3 +90,9 @@ class TestAuthAPI:
             "email": "short@test.com", "username": "short", "password": "abc",
         })
         assert r.status_code == 400
+
+    def test_password_without_digits_rejected(self, client):
+        r = client.post("/api/v1/auth/register", json={
+            "email": "nodigits@test.com", "username": "nodigits", "password": "password!",
+        })
+        assert r.status_code == 400
