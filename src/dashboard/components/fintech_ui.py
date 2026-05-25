@@ -4,6 +4,7 @@ Fintech UX patterns — sparklines, donut charts, animated P&L, toasts, onboardi
 
 import math
 import time as _time
+from html import escape
 
 import streamlit as st
 from src.dashboard.components.theme import COLORS
@@ -119,10 +120,11 @@ def donut_chart_svg(
         paths.append(path)
 
         # Legend
+        safe_label = escape(str(label))
         legend_items.append(f"""
             <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
                 <div style="width:10px; height:10px; border-radius:50%; background:{colors[i]};"></div>
-                <span style="color:{COLORS['text_secondary']}; font-size:0.75rem;">{label}</span>
+                <span style="color:{COLORS['text_secondary']}; font-size:0.75rem;">{safe_label}</span>
                 <span style="color:{COLORS['text_muted']}; font-size:0.7rem; margin-left:auto;">{pct*100:.1f}%</span>
             </div>
         """)
@@ -205,7 +207,7 @@ def inject_pnl_animation_css():
     """, unsafe_allow_html=True)
 
 
-# ─── Notification Toasts ──────���─────────────────────────────────────────────
+# ─── Notification Toasts ────────────────────────────────────────────────────
 
 def toast(message: str, type: str = "info", duration: int = 4000):
     """Display a toast notification that auto-dismisses.
@@ -221,7 +223,8 @@ def toast(message: str, type: str = "info", duration: int = 4000):
         "warning": (COLORS["yellow"], COLORS["yellow_soft"], "⚠"),
         "info": (COLORS["blue"], COLORS["blue_soft"], "ℹ"),
     }
-    color, bg, icon = colors_map.get(type, colors_map["info"])
+    color, _, icon = colors_map.get(type, colors_map["info"])
+    safe_message = escape(message)
 
     # Unique ID for this toast
     toast_id = f"toast_{int(_time.time() * 1000)}"
@@ -246,7 +249,7 @@ def toast(message: str, type: str = "info", duration: int = 4000):
         gap: 10px;
     ">
         <span style="color:{color}; font-size:1.1rem;">{icon}</span>
-        <span style="color:{COLORS['text_primary']}; font-size:0.88rem; flex:1;">{message}</span>
+        <span style="color:{COLORS['text_primary']}; font-size:0.88rem; flex:1;">{safe_message}</span>
     </div>
     <style>
     @keyframes toast-slide-in {{
@@ -351,9 +354,13 @@ def inject_keyboard_shortcuts():
 
     Shortcuts:
     - Ctrl+K / Cmd+K: Focus search/ticker input
-    - Ctrl+1-9: Navigate to pages
+    - ?: Toggle shortcut help
     - Escape: Close modals/expanders
     """
+    if st.session_state.get("_keyboard_shortcuts_injected"):
+        return
+    st.session_state["_keyboard_shortcuts_injected"] = True
+
     st.markdown("""
     <style>
     .shortcut-help {
@@ -435,6 +442,7 @@ def holding_row_html(
     sparkline_prices: list[float] | None = None,
 ) -> str:
     """Render a single holding row with sparkline and animated P&L."""
+    safe_ticker = escape(ticker)
     pnl_color = COLORS["green"] if pnl >= 0 else COLORS["red"]
     pnl_bg = COLORS["green_soft"] if pnl >= 0 else COLORS["red_soft"]
     arrow = "▲" if pnl >= 0 else "▼"
@@ -451,7 +459,7 @@ def holding_row_html(
         transition: border-color 0.2s ease;
     " onmouseover="this.style.borderColor='{COLORS['accent']}40'" onmouseout="this.style.borderColor='{COLORS['border']}'">
         <div style="min-width:100px;">
-            <div style="color:{COLORS['text_primary']}; font-weight:700; font-size:1.05rem;">{ticker}</div>
+            <div style="color:{COLORS['text_primary']}; font-weight:700; font-size:1.05rem;">{safe_ticker}</div>
             <div style="color:{COLORS['text_muted']}; font-size:0.78rem;">{shares} shares @ ${avg_cost:.2f}</div>
         </div>
         <div style="flex-shrink:0;">{spark_html}</div>

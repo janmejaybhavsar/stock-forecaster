@@ -1,4 +1,6 @@
 import sys
+import logging
+from html import escape
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
@@ -13,21 +15,16 @@ from src.dashboard.components.fintech_ui import (
     animated_pnl,
     donut_chart_svg,
     holding_row_html,
-    inject_keyboard_shortcuts,
-    inject_pnl_animation_css,
     onboarding_tour,
-    sparkline_svg,
     toast,
 )
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Portfolio</h1>", unsafe_allow_html=True)
 params = render_page_controls()
 
-# Inject animations and keyboard shortcuts
-inject_pnl_animation_css()
-inject_keyboard_shortcuts()
-
 from src.dashboard.components.auth_helper import API_BASE
+
+logger = logging.getLogger(__name__)
 
 if not st.session_state.get("auth_token"):
     st.markdown(f"""
@@ -147,22 +144,35 @@ st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 sparkline_data: dict[str, list[float]] = {}
 tickers_to_fetch = list({h["ticker"] for h in holdings})
 
-try:
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_sparkline_prices(ticker: str, auth_token: str) -> list[float]:
     from datetime import date, timedelta
-    for ticker in tickers_to_fetch[:10]:  # Limit to prevent too many requests
+
+    try:
         spark_r = httpx.get(
             f"{API_BASE}/stocks/{ticker}/history",
             params={"start": (date.today() - timedelta(days=7)).isoformat(), "interval": "1d"},
-            headers=headers,
+            headers={"Authorization": f"Bearer {auth_token}"},
             timeout=5,
         )
-        if spark_r.status_code == 200:
-            data = spark_r.json()
-            # Handle both paginated and raw response
-            records = data if isinstance(data, list) else data.get("data", [])
-            sparkline_data[ticker] = [r["close"] for r in records]
-except Exception:
-    pass  # Sparklines are nice-to-have, don't block the page
+        spark_r.raise_for_status()
+    except (httpx.HTTPError, ValueError) as e:
+        logger.warning("Failed to load sparkline data for %s: %s", ticker, e)
+        return []
+
+    try:
+        data = spark_r.json()
+    except ValueError as e:
+        logger.warning("Failed to parse sparkline data for %s: %s", ticker, e)
+        return []
+    records = data if isinstance(data, list) else data.get("data", [])
+    return [float(r["close"]) for r in records if isinstance(r, dict) and isinstance(r.get("close"), (int, float))]
+
+
+for ticker in tickers_to_fetch[:10]:  # Limit to prevent too many requests
+    prices = fetch_sparkline_prices(ticker, st.session_state.auth_token)
+    if prices:
+        sparkline_data[ticker] = prices
 
 # --- Holdings Table with Sparklines and Chart ---
 col_table, col_chart = st.columns([3, 2])
@@ -187,9 +197,15 @@ with col_table:
 
         # Delete button
         if st.button(f"Remove {h['ticker']}", key=f"del_{h['id']}", type="secondary"):
-            httpx.delete(f"{API_BASE}/portfolio/holdings/{h['id']}", headers=headers, timeout=10)
-            toast(f"Removed {h['ticker']} from portfolio", type="info")
-            st.rerun()
+            try:
+                del_r = httpx.delete(f"{API_BASE}/portfolio/holdings/{h['id']}", headers=headers, timeout=10)
+                if del_r.status_code == 200:
+                    toast(f"Removed {h['ticker']} from portfolio", type="info")
+                    st.rerun()
+                else:
+                    toast(f"Failed to remove {h['ticker']}: {del_r.text}", type="error")
+            except httpx.HTTPError as e:
+                toast(f"Failed to remove {h['ticker']}: {e}", type="error")
 
 with col_chart:
     st.markdown(section_header("Allocation"), unsafe_allow_html=True)
@@ -211,6 +227,7 @@ with col_chart:
         max_pct = max(values) / sum(values) * 100
         if max_pct > 50:
             max_ticker = labels[values.index(max(values))]
+            safe_max_ticker = escape(str(max_ticker))
             st.markdown(f"""
             <div style="
                 background:{COLORS['yellow_soft']};
@@ -221,7 +238,7 @@ with col_chart:
                 margin-top: 16px;
             ">
                 <span style="color:{COLORS['yellow']}; font-size:0.85rem;">
-                    ⚠️ {max_ticker} is {max_pct:.0f}% of your portfolio — consider diversifying.
+                    ⚠️ {safe_max_ticker} is {max_pct:.0f}% of your portfolio — consider diversifying.
                 </span>
             </div>
             """, unsafe_allow_html=True)
