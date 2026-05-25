@@ -1,15 +1,15 @@
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import date, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from src.api.limiter import limiter
 from src.api.schemas import ForecastRequest, ForecastResponse
 from src.auth.ticker_validator import sanitize_ticker
+from src.data_layer.provider_factory import get_provider
 from src.database.repositories import ForecastHistoryRepository
 
 router = APIRouter(tags=["forecasts"])
@@ -21,9 +21,6 @@ _ALLOWED_COMPARE_MODELS = {"arima", "xgboost", "lstm", "transformer", "prophet",
 
 def _run_forecast(forecast_id: str, req: ForecastRequest) -> None:
     try:
-        from datetime import date, timedelta
-
-        from src.data_layer.provider_factory import get_provider
         from src.features.pipeline import FeaturePipeline
         from src.models.model_registry import get_model
 
@@ -148,22 +145,23 @@ def _run_single_model(ticker: str, model_name: str, horizon: int, df) -> dict:
 
 
 @router.post("/compare")
-@_limiter.limit("3/minute")
+@limiter.limit("3/minute")
 def compare_models(request: Request, req: CompareRequest):
     """Run multiple models in parallel and return all results at once."""
     try:
         normalized_ticker = sanitize_ticker(req.ticker)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    results = {}
+
     provider = get_provider()
     end = date.today()
     start = end - timedelta(days=730)
-    df = provider.get_historical(req.ticker, start, end)
+    df = provider.get_historical(normalized_ticker, start, end)
 
+    results = {}
     with ThreadPoolExecutor(max_workers=min(len(req.models), 4)) as executor:
         futures = {
-            executor.submit(_run_single_model, normalized_ticker, m, req.horizon): m
+            executor.submit(_run_single_model, normalized_ticker, m, req.horizon, df): m
             for m in req.models
         }
         for future in as_completed(futures):

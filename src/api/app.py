@@ -16,8 +16,6 @@ from src.api.limiter import limiter
 from src.api.routes import auth, backtests, coach, forecasts, models, portfolio, settings, signals, stocks, watchlists
 from src.database.connection import init_db
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
-
 # CORS origins: configurable via CORS_ORIGINS env var (comma-separated) for production
 _DEFAULT_ORIGINS = [
     "http://localhost:8501",
@@ -32,9 +30,9 @@ def _get_cors_origins() -> list[str]:
     if env_origins:
         return [o.strip() for o in env_origins.split(",") if o.strip()]
     from config.settings import get_settings
-    settings = get_settings()
-    if settings.cors_origins:
-        return [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    app_settings = get_settings()
+    if app_settings.cors_origins:
+        return [o.strip() for o in app_settings.cors_origins.split(",") if o.strip()]
     return _DEFAULT_ORIGINS
 
 
