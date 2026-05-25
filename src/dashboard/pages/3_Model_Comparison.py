@@ -3,13 +3,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
-import time
-
 import plotly.graph_objects as go
 import streamlit as st
 
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, section_header
+from src.dashboard.components.ui_helpers import empty_state, error_card
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Compare Models</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True, show_dates=True, show_horizon=True)
@@ -31,37 +30,28 @@ if compare_btn:
     else:
         import httpx
 
-        results = {}
-        progress = st.progress(0)
+        with st.spinner(f"Running {len(models_to_compare)} models in parallel..."):
+            try:
+                r = httpx.post(f"{API_BASE}/forecasts/compare", json={
+                    "ticker": params["ticker"],
+                    "models": models_to_compare,
+                    "horizon": params["horizon"],
+                }, timeout=300)
+                r.raise_for_status()
+                compare_data = r.json()
 
-        for i, model in enumerate(models_to_compare):
-            with st.spinner(f"Running {model.upper()}..."):
-                try:
-                    r = httpx.post(f"{API_BASE}/forecasts/run", json={
-                        "ticker": params["ticker"],
-                        "model_name": model,
-                        "horizon": params["horizon"],
-                        "include_sentiment": False,
-                    }, timeout=30)
-                    job = r.json()
+                results = {}
+                for model_name, model_result in compare_data["results"].items():
+                    if model_result["status"] == "completed":
+                        results[model_name] = model_result
+                    else:
+                        st.warning(f"{model_name.upper()} failed: {model_result.get('error', 'Unknown')}")
 
-                    for _ in range(120):
-                        r = httpx.get(f"{API_BASE}/forecasts/{job['id']}", timeout=30)
-                        result = r.json()
-                        if result["status"] != "running":
-                            break
-                        time.sleep(2)
-
-                    if result["status"] == "completed":
-                        results[model] = result
-                except Exception as e:
-                    st.warning(f"{model.upper()} failed: {e}")
-
-            progress.progress((i + 1) / len(models_to_compare))
-
-        if results:
-            st.session_state["comparison_results"] = results
-            st.session_state["comparison_params"] = params.copy()
+                if results:
+                    st.session_state["comparison_results"] = results
+                    st.session_state["comparison_params"] = params.copy()
+            except Exception as e:
+                error_card("Comparison Failed", str(e), "Check that the API server is running.")
 
 st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
@@ -115,7 +105,7 @@ if "comparison_results" in st.session_state:
         )
         st.plotly_chart(fig, use_container_width=True)
     except Exception as e:
-        st.error(f"Error: {e}")
+        error_card("Chart Error", str(e), "Check that the API server is running.")
 
     st.markdown(section_header("Prediction Details"), unsafe_allow_html=True)
     import pandas as pd
@@ -125,9 +115,4 @@ if "comparison_results" in st.session_state:
         with tab:
             st.dataframe(pd.DataFrame(result["predictions"]), use_container_width=True)
 else:
-    st.markdown(f"""
-    <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:48px; text-align:center;">
-        <div style="font-size:2.5rem; margin-bottom:12px;">🔬</div>
-        <p style="color:{COLORS['text_secondary']}; font-size:1.1rem; margin:0;">Select models above and click 'Compare Models' to see forecasts side by side</p>
-    </div>
-    """, unsafe_allow_html=True)
+    empty_state("🔬", "Select models above and click 'Compare Models'", "Forecasts will be displayed side by side for easy comparison")

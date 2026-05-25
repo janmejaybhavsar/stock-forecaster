@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
+from src.auth.revocation import is_token_revoked
 from src.auth.security import decode_token
 from src.data_layer.base_provider import DataProvider
 from src.data_layer.provider_factory import get_provider
@@ -20,6 +21,12 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     payload = decode_token(token)
     if not payload:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+
+    # Check if token has been revoked
+    jti = payload.get("jti")
+    if jti and is_token_revoked(jti):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token has been revoked")
+
     user = _user_repo.get_by_id(payload.get("sub", ""))
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
@@ -31,5 +38,9 @@ def get_optional_user(token: str = Depends(oauth2_scheme)) -> dict | None:
         return None
     payload = decode_token(token)
     if not payload:
+        return None
+    # Check revocation for optional auth too
+    jti = payload.get("jti")
+    if jti and is_token_revoked(jti):
         return None
     return _user_repo.get_by_id(payload.get("sub", ""))

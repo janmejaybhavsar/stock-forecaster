@@ -1,5 +1,6 @@
 import hashlib
 import os
+import uuid
 from datetime import datetime, timedelta
 
 from jose import JWTError, jwt
@@ -25,6 +26,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(hours=settings.jwt_expire_hours))
     to_encode["exp"] = expire
+    to_encode["jti"] = str(uuid.uuid4())
     return jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 

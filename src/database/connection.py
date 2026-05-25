@@ -93,6 +93,16 @@ CREATE TABLE IF NOT EXISTS user_settings (
     llm_api_key TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Performance indexes
+CREATE INDEX IF NOT EXISTS idx_watchlists_user ON watchlists(user_id);
+CREATE INDEX IF NOT EXISTS idx_forecast_history_user ON forecast_history(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_forecast_history_status ON forecast_history(status) WHERE status = 'running';
+CREATE INDEX IF NOT EXISTS idx_backtest_history_user ON backtest_history(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_holdings_user ON holdings(user_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_user_active ON alerts(user_id, triggered);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, read, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_learning_progress_user ON learning_progress(user_id);
 """
 
 

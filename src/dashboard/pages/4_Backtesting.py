@@ -10,6 +10,7 @@ import streamlit as st
 from src.dashboard.components.charts import equity_curve_chart
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, metric_card, section_header
+from src.dashboard.components.ui_helpers import empty_state, error_card, loading_card_skeleton, responsive_columns
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Backtesting</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True, show_dates=True, show_model=True)
@@ -32,6 +33,7 @@ run_btn = st.button("Run Backtest", type="primary")
 if run_btn:
     import httpx
 
+    loading_card_skeleton(count=4)
     with st.spinner(f"Running backtest for {params['ticker']} with {params['model'].upper()}..."):
         try:
             r = httpx.post(f"{API_BASE}/backtests/run", json={
@@ -53,11 +55,11 @@ if run_btn:
             if result["status"] == "completed":
                 st.session_state["backtest_result"] = result
             elif result["status"] == "failed":
-                st.error(f"Backtest failed: {result.get('error', 'Unknown')}")
+                error_card("Backtest Failed", result.get("error", "Unknown error"), "Try a different model or adjust the training window.")
             else:
-                st.warning("Backtest timed out.")
+                error_card("Backtest Timed Out", "The model took too long to respond.", "Try reducing the training window or use a faster model like ARIMA.")
         except Exception as e:
-            st.error(f"Error: {e}")
+            error_card("Request Error", str(e), "Check that the API server is running.")
 
 st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
@@ -69,14 +71,14 @@ if "backtest_result" in st.session_state:
         st.markdown(section_header("Performance Metrics", "How well the model predicted historical prices"), unsafe_allow_html=True)
         metrics = result["metrics"]
 
-        mc1, mc2, mc3, mc4 = st.columns(4)
-        with mc1:
+        cols = responsive_columns(4)
+        with cols[0]:
             st.markdown(metric_card("MAE", f"{metrics.get('mae', 0):.4f}"), unsafe_allow_html=True)
-        with mc2:
+        with cols[1]:
             st.markdown(metric_card("RMSE", f"{metrics.get('rmse', 0):.4f}"), unsafe_allow_html=True)
-        with mc3:
+        with cols[2]:
             st.markdown(metric_card("MAPE", f"{metrics.get('mape', 0):.2f}%"), unsafe_allow_html=True)
-        with mc4:
+        with cols[3]:
             acc = metrics.get("directional_accuracy", 0)
             acc_color = "green" if acc >= 55 else "red" if acc < 45 else "yellow"
             st.markdown(metric_card("Direction Acc.", f"{acc:.1f}%", delta_color=acc_color), unsafe_allow_html=True)
@@ -103,10 +105,4 @@ if "backtest_result" in st.session_state:
         import pandas as pd
         st.dataframe(pd.DataFrame(result["predictions"]), use_container_width=True)
 else:
-    st.markdown(f"""
-    <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:48px; text-align:center;">
-        <div style="font-size:2.5rem; margin-bottom:12px;">🧪</div>
-        <p style="color:{COLORS['text_secondary']}; font-size:1.1rem; margin:0;">Click 'Run Backtest' to evaluate model performance on historical data</p>
-        <p style="color:{COLORS['text_muted']}; font-size:0.85rem; margin-top:8px;">Adjust training window, test window, and step size above</p>
-    </div>
-    """, unsafe_allow_html=True)
+    empty_state("🧪", "Click 'Run Backtest' to evaluate model performance", "Adjust training window, test window, and step size above")

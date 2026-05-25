@@ -1,7 +1,35 @@
+import logging
+import os
 import secrets
 from pathlib import Path
 
+from dotenv import dotenv_values
 from pydantic_settings import BaseSettings
+
+logger = logging.getLogger(__name__)
+
+
+def _stable_jwt_secret() -> str:
+    """Return a persistent JWT secret: env var > .env file > generate and persist."""
+    if os.environ.get("JWT_SECRET"):
+        return os.environ["JWT_SECRET"]
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if env_path.exists():
+        try:
+            secret_from_file = dotenv_values(env_path).get("JWT_SECRET")
+            if secret_from_file:
+                return str(secret_from_file)
+        except OSError as exc:
+            logger.warning("Unable to read JWT_SECRET from %s: %s", env_path, exc)
+    # Generate and persist so it survives restarts
+    secret = secrets.token_urlsafe(32)
+    try:
+        env_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(env_path, "a", encoding="utf-8") as f:
+            f.write(f"\nJWT_SECRET={secret}\n")
+    except OSError as exc:
+        logger.warning("Unable to persist JWT_SECRET to %s; using in-memory secret: %s", env_path, exc)
+    return secret
 
 
 class Settings(BaseSettings):
@@ -12,9 +40,11 @@ class Settings(BaseSettings):
     api_port: int = 8000
     streamlit_port: int = 8501
 
-    jwt_secret: str = secrets.token_urlsafe(32)
+    jwt_secret: str = _stable_jwt_secret()
     jwt_algorithm: str = "HS256"
     jwt_expire_hours: int = 168  # 7 days
+
+    cors_origins: str = ""  # Comma-separated origins for production (empty = dev defaults)
 
     llm_provider: str = "gemini"
     llm_api_key: str = ""

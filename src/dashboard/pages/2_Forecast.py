@@ -10,6 +10,7 @@ import streamlit as st
 from src.dashboard.components.charts import forecast_chart
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, section_header
+from src.dashboard.components.ui_helpers import empty_state, error_card, loading_skeleton
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Forecast</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True, show_dates=True, show_model=True, show_horizon=True, show_sentiment=True)
@@ -51,6 +52,7 @@ def poll_forecast(forecast_id: str) -> dict:
 run_btn = st.button("Run Forecast", type="primary")
 
 if run_btn:
+    loading_skeleton(lines=4, height="1.5rem")
     with st.spinner(f"Running {params['model'].upper()} forecast for {params['ticker']}..."):
         try:
             result = run_forecast(
@@ -63,11 +65,11 @@ if run_btn:
                 st.session_state["last_forecast"] = forecast
                 st.session_state["last_forecast_params"] = params.copy()
             elif forecast["status"] == "failed":
-                st.error(f"Forecast failed: {forecast.get('error', 'Unknown error')}")
+                error_card("Forecast Failed", forecast.get("error", "Unknown error"), "Try a different model or ticker.")
             else:
-                st.warning("Forecast timed out. Try again.")
+                error_card("Forecast Timed Out", "The model took too long to respond.", "Try a simpler model like ARIMA or reduce the horizon.")
         except Exception as e:
-            st.error(f"Error: {e}")
+            error_card("Request Error", str(e), "Check that the API server is running.")
 
 st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
@@ -109,12 +111,6 @@ if "last_forecast" in st.session_state:
         st.dataframe(pred_df, use_container_width=True)
 
     except Exception as e:
-        st.error(f"Error rendering forecast: {e}")
+        error_card("Render Error", str(e), "The forecast data may be corrupted. Try running again.")
 else:
-    st.markdown(f"""
-    <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:48px; text-align:center;">
-        <div style="font-size:2.5rem; margin-bottom:12px;">📈</div>
-        <p style="color:{COLORS['text_secondary']}; font-size:1.1rem; margin:0;">Click 'Run Forecast' to generate predictions</p>
-        <p style="color:{COLORS['text_muted']}; font-size:0.85rem; margin-top:8px;">Configure model and horizon using the controls above</p>
-    </div>
-    """, unsafe_allow_html=True)
+    empty_state("📈", "Click 'Run Forecast' to generate predictions", "Configure model and horizon using the controls above")

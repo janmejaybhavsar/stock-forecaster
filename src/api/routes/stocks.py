@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.api.dependencies import get_data_provider
 from src.api.schemas import SearchResult, StockInfo
+from src.auth.ticker_validator import sanitize_ticker
 from src.data_layer.base_provider import DataProvider
 
 router = APIRouter(tags=["stocks"])
@@ -23,8 +24,15 @@ def get_history(
     start: date = Query(default=None),
     end: date = Query(default=None),
     interval: str = Query(default="1d"),
+    page: int = Query(default=1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(default=0, ge=0, le=2000, description="Records per page (0 = all)"),
     provider: DataProvider = Depends(get_data_provider),
 ):
+    try:
+        ticker = sanitize_ticker(ticker)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
     if end is None:
         end = date.today()
     if start is None:
@@ -33,6 +41,13 @@ def get_history(
     df = provider.get_historical(ticker, start, end, interval)
     if df.empty:
         raise HTTPException(404, f"No data found for {ticker}")
+
+    total = len(df)
+
+    if page_size > 0:
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        df = df.iloc[start_idx:end_idx]
 
     records = []
     for idx, row in df.iterrows():
@@ -44,6 +59,16 @@ def get_history(
             "close": round(row["Close"], 2),
             "volume": int(row["Volume"]),
         })
+
+    if page_size > 0:
+        return {
+            "data": records,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": (total + page_size - 1) // page_size,
+        }
+
     return records
 
 
@@ -52,6 +77,10 @@ def get_stock_info(
     ticker: str,
     provider: DataProvider = Depends(get_data_provider),
 ):
+    try:
+        ticker = sanitize_ticker(ticker)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     try:
         return provider.get_info(ticker)
     except Exception as e:

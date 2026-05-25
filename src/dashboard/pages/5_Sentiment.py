@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, section_header
+from src.dashboard.components.ui_helpers import empty_state, error_card
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>Sentiment</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True)
@@ -25,9 +26,9 @@ if st.button("Analyze Sentiment", type="primary"):
                 scored = analyzer.score_headlines(headlines)
                 st.session_state["sentiment_scored"] = scored
             else:
-                st.warning("No headlines found for this ticker.")
+                error_card("No Headlines Found", f"No recent news articles found for {params['ticker']}.", "Try a more popular ticker like AAPL or MSFT.")
         except Exception as e:
-            st.error(f"Sentiment analysis failed: {e}")
+            error_card("Sentiment Analysis Failed", str(e), "This usually means the FinBERT model is still loading. Try again in a moment.")
 
 st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
@@ -143,12 +144,4 @@ if "sentiment_scored" in st.session_state:
         """, unsafe_allow_html=True)
 
 else:
-    st.markdown(f"""
-    <div style="background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px; padding:48px; text-align:center;">
-        <div style="font-size:2.5rem; margin-bottom:12px;">📰</div>
-        <p style="color:{COLORS['text_secondary']}; font-size:1.1rem; margin:0;">Click 'Analyze Sentiment' to fetch and analyze recent news</p>
-        <p style="color:{COLORS['text_muted']}; font-size:0.85rem; margin-top:12px;">
-            Uses FinBERT to classify news headlines as positive, negative, or neutral
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    empty_state("📰", "Click 'Analyze Sentiment' to fetch and analyze recent news", "Uses FinBERT to classify news headlines as positive, negative, or neutral")

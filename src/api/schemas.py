@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+import re
 
 
 class StockInfo(BaseModel):
@@ -23,10 +24,18 @@ class SearchResult(BaseModel):
 
 
 class ForecastRequest(BaseModel):
-    ticker: str
-    model_name: str = "arima"
-    horizon: int = 5
+    ticker: str = Field(..., min_length=1, max_length=20)
+    model_name: str = Field("arima", pattern=r"^(arima|xgboost|lstm|transformer|prophet|ensemble)$")
+    horizon: int = Field(5, ge=1, le=30)
     include_sentiment: bool = False
+
+    @field_validator("ticker")
+    @classmethod
+    def validate_ticker(cls, v: str) -> str:
+        v = v.upper().strip()
+        if not re.match(r"^[A-Z0-9\.\-\^]+$", v):
+            raise ValueError("Ticker must contain only letters, numbers, dots, hyphens, or ^")
+        return v
 
 
 class ForecastResponse(BaseModel):
@@ -40,11 +49,19 @@ class ForecastResponse(BaseModel):
 
 
 class BacktestRequest(BaseModel):
-    ticker: str
-    model_name: str = "arima"
-    train_window: int = 252
-    test_window: int = 21
-    step_size: int = 21
+    ticker: str = Field(..., min_length=1, max_length=20)
+    model_name: str = Field("arima", pattern=r"^(arima|xgboost|lstm|transformer|prophet|ensemble)$")
+    train_window: int = Field(252, ge=60, le=1000)
+    test_window: int = Field(21, ge=5, le=252)
+    step_size: int = Field(21, ge=1, le=252)
+
+    @field_validator("ticker")
+    @classmethod
+    def validate_ticker(cls, v: str) -> str:
+        v = v.upper().strip()
+        if not re.match(r"^[A-Z0-9\.\-\^]+$", v):
+            raise ValueError("Ticker must contain only letters, numbers, dots, hyphens, or ^")
+        return v
 
 
 class BacktestResponse(BaseModel):

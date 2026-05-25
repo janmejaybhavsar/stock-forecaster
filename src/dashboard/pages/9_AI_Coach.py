@@ -8,6 +8,7 @@ import streamlit as st
 
 from src.dashboard.components.sidebar import render_page_controls
 from src.dashboard.components.theme import COLORS, section_header
+from src.dashboard.components.ui_helpers import empty_state
 
 st.markdown(f"<h1 style='color:{COLORS['text_primary']}; margin:0 0 4px 0; font-weight:800; font-size:1.8rem;'>AI Coach</h1>", unsafe_allow_html=True)
 params = render_page_controls(show_ticker=True)
@@ -237,16 +238,16 @@ if prompt := st.chat_input("Ask your AI coach anything...", disabled=not llm_api
 
 # Empty state
 if not st.session_state["_coach_messages"]:
+    empty_state(
+        "🤖",
+        "Your AI Portfolio Coach is ready!",
+        "Try a quick action above or type a question below",
+    )
     st.markdown(f"""
-    <div style="text-align:center; padding:48px; background:{COLORS['bg_card']}; border:1px solid {COLORS['border']}; border-radius:12px;">
-        <div style="font-size:3rem; margin-bottom:16px;">🤖</div>
-        <p style="color:{COLORS['text_primary']}; font-size:1.2rem; font-weight:600; margin:0;">Your AI Portfolio Coach is ready!</p>
-        <p style="color:{COLORS['text_secondary']}; margin-top:8px;">Try a quick action above or ask a question below</p>
-        <div style="margin-top:20px; color:{COLORS['text_muted']}; font-size:0.85rem;">
-            <p style="margin:4px 0;">"Is my portfolio too risky?"</p>
-            <p style="margin:4px 0;">"Should I buy more {params['ticker']}?"</p>
-            <p style="margin:4px 0;">"What stocks should I add for diversification?"</p>
-            <p style="margin:4px 0;">"Explain what RSI means for my stocks"</p>
-        </div>
+    <div style="text-align:center; color:{COLORS['text_muted']}; font-size:0.85rem; margin-top:12px;">
+        <p style="margin:4px 0;">"Is my portfolio too risky?"</p>
+        <p style="margin:4px 0;">"Should I buy more {params['ticker']}?"</p>
+        <p style="margin:4px 0;">"What stocks should I add for diversification?"</p>
+        <p style="margin:4px 0;">"Explain what RSI means for my stocks"</p>
     </div>
     """, unsafe_allow_html=True)
